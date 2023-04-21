@@ -1,4 +1,3 @@
-
 """
 # Code adapted from:
 # https://github.com/pytorch/pytorch/blob/master/torch/nn/parallel/data_parallel.py
@@ -34,7 +33,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.s
 """
 
-
 import operator
 import torch
 import warnings
@@ -66,7 +64,6 @@ def _check_balance(device_ids):
         return
     if warn_imbalance(lambda props: props.multi_processor_count):
         return
-
 
 
 def data_parallel(module, inputs, device_ids=None, output_device=None, dim=0, module_kwargs=None, gather=True):
@@ -102,7 +99,6 @@ def data_parallel(module, inputs, device_ids=None, output_device=None, dim=0, mo
         return gather(outputs, output_device, dim)
     else:
         return outputs
-
 
 
 class MyDataParallel(Module):
@@ -201,4 +197,3 @@ class MyDataParallel(Module):
 
     def gather(self, outputs, output_device):
         return gather(outputs, output_device, dim=self.dim)
-

@@ -14,10 +14,14 @@ root = "/home/tb5zhh/workspace/2023/SML/SML/data/new-carla/v3"
 num_classes = 19
 ignore_label = 255
 
+
 def file_id(filepath: str):
     # example input: /home/tb5zhh/workspace/2023/SML/SML/data/new-carla/v3/train/seq00-1/rgb_v/1.png
     # example output:seq00-001-001
-    return filepath.split("/")[-3].split("-")[0] + "-" + f'{int(filepath.split("/")[-3].split("-")[1]):03d}' + "-" + f'{int(filepath.split("/")[-1][:-4]):03d}'
+    return filepath.split("/")[-3].split(
+        "-"
+    )[0] + "-" + f'{int(filepath.split("/")[-3].split("-")[1]):03d}' + "-" + f'{int(filepath.split("/")[-1][:-4]):03d}'
+
 
 def colorize_mask(mask):
     """
@@ -39,10 +43,16 @@ def make_dataset(mode):
         ret_list.append((i, i.replace("rgb_v", "mask_v")))
     return ret_list
 
+
 class Carla(data.Dataset):
 
-    def __init__(self, mode, joint_transform=None,
-                 transform=None, target_transform=None, target_aux_transform=None, dump_images=False):
+    def __init__(self,
+                 mode,
+                 joint_transform=None,
+                 transform=None,
+                 target_transform=None,
+                 target_aux_transform=None,
+                 dump_images=False):
         self.mode = mode
         self.joint_transform = joint_transform
         self.transform = transform
@@ -61,7 +71,7 @@ class Carla(data.Dataset):
 
         input_img = Image.open(img_path)
         img = input_img.copy()
-        mask= Image.open(mask_path)
+        mask = Image.open(mask_path)
 
         img_name = os.path.splitext(os.path.basename(img_path))[0]
 
@@ -114,6 +124,7 @@ class Carla(data.Dataset):
 
     def __len__(self):
         return len(self.imgs)
+
 
 if __name__ == "__main__":
     dataset = Carla("train", dump_images=True)

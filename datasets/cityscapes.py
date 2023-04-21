@@ -26,11 +26,11 @@ root = cfg.DATASET.CITYSCAPES_DIR
 aug_root = cfg.DATASET.CITYSCAPES_AUG_DIR
 img_postfix = '_leftImg8bit.png'
 
-palette = [128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153,
-           153, 153, 153, 250, 170, 30,
-           220, 220, 0, 107, 142, 35, 152, 251, 152, 70, 130, 180, 220, 20, 60,
-           255, 0, 0, 0, 0, 142, 0, 0, 70,
-           0, 60, 100, 0, 80, 100, 0, 0, 230, 119, 11, 32]
+palette = [
+    128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153, 153, 153, 153, 250, 170, 30, 220, 220, 0, 107,
+    142, 35, 152, 251, 152, 70, 130, 180, 220, 20, 60, 255, 0, 0, 0, 0, 142, 0, 0, 70, 0, 60, 100, 0, 80, 100, 0, 0,
+    230, 119, 11, 32
+]
 zero_pad = 256 * 3 - len(palette)
 for i in range(zero_pad):
     palette.append(0)
@@ -53,11 +53,9 @@ def add_items(items, aug_items, cities, img_path, mask_path, mask_postfix, mode,
     """
 
     for c in cities:
-        c_items = [name.split(img_postfix)[0] for name in
-                   os.listdir(os.path.join(img_path, c))]
+        c_items = [name.split(img_postfix)[0] for name in os.listdir(os.path.join(img_path, c))]
         for it in c_items:
-            item = (os.path.join(img_path, c, it + img_postfix),
-                    os.path.join(mask_path, c, it + mask_postfix))
+            item = (os.path.join(img_path, c, it + img_postfix), os.path.join(mask_path, c, it + mask_postfix))
             ########################################################
             ###### dataset augmentation ############################
             ########################################################
@@ -71,12 +69,14 @@ def add_items(items, aug_items, cities, img_path, mask_path, mask_postfix, mode,
                 next_seq_id = "%06d" % (int(cur_seq_id) + maxSkip)
                 prev_it = file_info[0] + "_" + file_info[1] + "_" + prev_seq_id
                 next_it = file_info[0] + "_" + file_info[1] + "_" + next_seq_id
-                prev_item = (os.path.join(new_img_path, c, prev_it + img_postfix),
-                             os.path.join(new_mask_path, c, prev_it + mask_postfix))
+                prev_item = (os.path.join(new_img_path, c,
+                                          prev_it + img_postfix), os.path.join(new_mask_path, c,
+                                                                               prev_it + mask_postfix))
                 if os.path.isfile(prev_item[0]) and os.path.isfile(prev_item[1]):
                     aug_items.append(prev_item)
-                next_item = (os.path.join(new_img_path, c, next_it + img_postfix),
-                             os.path.join(new_mask_path, c, next_it + mask_postfix))
+                next_item = (os.path.join(new_img_path, c,
+                                          next_it + img_postfix), os.path.join(new_mask_path, c,
+                                                                               next_it + mask_postfix))
                 if os.path.isfile(next_item[0]) and os.path.isfile(next_item[1]):
                     aug_items.append(next_item)
             items.append(item)
@@ -163,8 +163,7 @@ def make_dataset(quality, mode, maxSkip=0, fine_coarse_mult=6, cv_split=0):
         mask_postfix = '_gtCoarse_labelIds.png'
         coarse_dirs = make_split_coarse(img_path)
         logging.info('{} coarse cities: '.format(mode) + str(coarse_dirs[mode]))
-        add_items(items, aug_items, coarse_dirs[mode], img_path, mask_path,
-                  mask_postfix, mode, maxSkip)
+        add_items(items, aug_items, coarse_dirs[mode], img_path, mask_path, mask_postfix, mode, maxSkip)
     elif quality == 'fine':
         assert mode in ['train', 'val', 'test', 'trainval']
         img_dir_name = 'leftImg8bit_trainvaltest'
@@ -179,12 +178,10 @@ def make_dataset(quality, mode, maxSkip=0, fine_coarse_mult=6, cv_split=0):
         for mode in modes:
             if mode == 'test':
                 cv_splits = make_test_split(img_dir_name)
-                add_items(items, aug_items, cv_splits, img_path, mask_path,
-                          mask_postfix, mode, maxSkip)
+                add_items(items, aug_items, cv_splits, img_path, mask_path, mask_postfix, mode, maxSkip)
             else:
                 logging.info('{} fine cities: '.format(mode) + str(cv_splits[cv_split][mode]))
-                add_items(items, aug_items, cv_splits[cv_split][mode], img_path, mask_path,
-                          mask_postfix, mode, maxSkip)
+                add_items(items, aug_items, cv_splits[cv_split][mode], img_path, mask_path, mask_postfix, mode, maxSkip)
     else:
         raise 'unknown cityscapes quality {}'.format(quality)
     # logging.info('Cityscapes-{}: {} images'.format(mode, len(items)))
@@ -201,8 +198,7 @@ def make_dataset_video():
     items = []
     categories = os.listdir(img_path)
     for c in categories[1:]:
-        c_items = [name.split(img_postfix)[0] for name in
-                   os.listdir(os.path.join(img_path, c))]
+        c_items = [name.split(img_postfix)[0] for name in os.listdir(os.path.join(img_path, c))]
         for it in c_items:
             item = os.path.join(img_path, c, it + img_postfix)
             items.append(item)
@@ -211,10 +207,20 @@ def make_dataset_video():
 
 class CityScapes(data.Dataset):
 
-    def __init__(self, quality, mode, maxSkip=0, joint_transform=None, sliding_crop=None,
-                 transform=None, target_transform=None, target_aux_transform=None, dump_images=False,
-                 cv_split=None, eval_mode=False,
-                 eval_scales=None, eval_flip=False):
+    def __init__(self,
+                 quality,
+                 mode,
+                 maxSkip=0,
+                 joint_transform=None,
+                 sliding_crop=None,
+                 transform=None,
+                 target_transform=None,
+                 target_aux_transform=None,
+                 dump_images=False,
+                 cv_split=None,
+                 eval_mode=False,
+                 eval_scales=None,
+                 eval_flip=False):
         self.quality = quality
         self.mode = mode
         self.maxSkip = maxSkip
@@ -239,7 +245,8 @@ class CityScapes(data.Dataset):
         else:
             self.cv_split = 0
         self.imgs, _ = make_dataset(quality, mode, self.maxSkip, cv_split=self.cv_split)
-        from IPython import embed; embed()
+        from IPython import embed
+        embed()
         if len(self.imgs) == 0:
             raise RuntimeError('Found 0 images, please check the data set')
 
@@ -266,7 +273,7 @@ class CityScapes(data.Dataset):
         img_path, mask_path = self.imgs[index]
 
         img = Image.open(img_path).convert('RGB')
-        mask= Image.open(mask_path)
+        mask = Image.open(mask_path)
         img_name = os.path.splitext(os.path.basename(img_path))[0]
 
         mask = np.array(mask)
@@ -279,10 +286,8 @@ class CityScapes(data.Dataset):
             ood_mask_copy[mask == k] = v
 
         if self.eval_mode:
-            return [transforms.ToTensor()(img)], self._eval_get_item(img, seg_mask_copy,
-                                                                     ood_mask_copy,
-                                                                     self.eval_scales,
-                                                                     self.eval_flip), img_name
+            return [transforms.ToTensor()(img)], self._eval_get_item(img, seg_mask_copy, ood_mask_copy,
+                                                                     self.eval_scales, self.eval_flip), img_name
 
         seg_mask = Image.fromarray(seg_mask_copy.astype(np.uint8))
         ood_mask = Image.fromarray(ood_mask_copy.astype(np.uint8))
@@ -322,15 +327,27 @@ class CityScapes(data.Dataset):
     def __len__(self):
         return len(self.imgs)
 
+
 class CityScapesUniform(data.Dataset):
     """
     Please do not use this for AGG
     """
 
-    def __init__(self, quality, mode, maxSkip=0, joint_transform_list=None, sliding_crop=None,
-                 transform=None, target_transform=None, target_aux_transform=None, dump_images=False,
-                 cv_split=None, class_uniform_pct=0.5, class_uniform_tile=1024,
-                 test=False, coarse_boost_classes=None):
+    def __init__(self,
+                 quality,
+                 mode,
+                 maxSkip=0,
+                 joint_transform_list=None,
+                 sliding_crop=None,
+                 transform=None,
+                 target_transform=None,
+                 target_aux_transform=None,
+                 dump_images=False,
+                 cv_split=None,
+                 class_uniform_pct=0.5,
+                 class_uniform_tile=1024,
+                 test=False,
+                 coarse_boost_classes=None):
         self.quality = quality
         self.mode = mode
         self.maxSkip = maxSkip
@@ -356,36 +373,29 @@ class CityScapesUniform(data.Dataset):
         assert len(self.imgs), 'Found 0 images, please check the data set'
 
         # Centroids for fine data
-        json_fn = 'cityscapes_{}_cv{}_tile{}.json'.format(
-            self.mode, self.cv_split, self.class_uniform_tile)
+        json_fn = 'cityscapes_{}_cv{}_tile{}.json'.format(self.mode, self.cv_split, self.class_uniform_tile)
         if os.path.isfile(json_fn):
             with open(json_fn, 'r') as json_data:
                 centroids = json.load(json_data)
             self.centroids = {int(idx): centroids[idx] for idx in centroids}
         else:
             self.centroids = uniform.class_centroids_all(
-                self.imgs,
-                num_classes,
-                id2trainid=id_to_trainid,
-                tile_size=class_uniform_tile)
+                self.imgs, num_classes, id2trainid=id_to_trainid, tile_size=class_uniform_tile)
             with open(json_fn, 'w') as outfile:
                 json.dump(self.centroids, outfile, indent=4)
 
         self.fine_centroids = copy.deepcopy(self.centroids)
         # Centroids for augmented data
         if self.maxSkip > 0:
-            json_fn = 'cityscapes_{}_cv{}_tile{}_skip{}.json'.format(
-                self.mode, self.cv_split, self.class_uniform_tile, self.maxSkip)
+            json_fn = 'cityscapes_{}_cv{}_tile{}_skip{}.json'.format(self.mode, self.cv_split, self.class_uniform_tile,
+                                                                     self.maxSkip)
             if os.path.isfile(json_fn):
                 with open(json_fn, 'r') as json_data:
                     centroids = json.load(json_data)
                 self.aug_centroids = {int(idx): centroids[idx] for idx in centroids}
             else:
                 self.aug_centroids = uniform.class_centroids_all(
-                    self.aug_imgs,
-                    num_classes,
-                    id2trainid=id_to_trainid,
-                    tile_size=class_uniform_tile)
+                    self.aug_imgs, num_classes, id2trainid=id_to_trainid, tile_size=class_uniform_tile)
                 with open(json_fn, 'w') as outfile:
                     json.dump(self.aug_centroids, outfile, indent=4)
 
@@ -396,8 +406,7 @@ class CityScapesUniform(data.Dataset):
 
         # Add in coarse centroids for certain classes
         if self.coarse_boost_classes is not None:
-            json_fn = 'cityscapes_coarse_{}_tile{}.json'.format(
-                self.mode, self.class_uniform_tile)
+            json_fn = 'cityscapes_coarse_{}_tile{}.json'.format(self.mode, self.class_uniform_tile)
             if os.path.isfile(json_fn):
                 with open(json_fn, 'r') as json_data:
                     centroids = json.load(json_data)
@@ -405,10 +414,7 @@ class CityScapesUniform(data.Dataset):
             else:
                 self.coarse_imgs, _ = make_dataset('coarse', mode, cv_split=0)
                 self.coarse_centroids = uniform.class_centroids_all(
-                    self.coarse_imgs,
-                    num_classes,
-                    id2trainid=id_to_trainid,
-                    tile_size=class_uniform_tile)
+                    self.coarse_imgs, num_classes, id2trainid=id_to_trainid, tile_size=class_uniform_tile)
                 with open(json_fn, 'w') as outfile:
                     json.dump(self.coarse_centroids, outfile, indent=4)
 
@@ -437,14 +443,10 @@ class CityScapesUniform(data.Dataset):
         if self.class_uniform_pct > 0:
             if cut:
                 # after max_cu_epoch, we only fine images to fine tune
-                self.imgs_uniform = uniform.build_epoch(self.imgs,
-                                                        self.fine_centroids,
-                                                        num_classes,
+                self.imgs_uniform = uniform.build_epoch(self.imgs, self.fine_centroids, num_classes,
                                                         cfg.CLASS_UNIFORM_PCT)
             else:
-                self.imgs_uniform = uniform.build_epoch(self.imgs + self.aug_imgs,
-                                                        self.centroids,
-                                                        num_classes,
+                self.imgs_uniform = uniform.build_epoch(self.imgs + self.aug_imgs, self.centroids, num_classes,
                                                         cfg.CLASS_UNIFORM_PCT)
         else:
             self.imgs_uniform = self.imgs
@@ -513,4 +515,3 @@ class CityScapesUniform(data.Dataset):
 
     def __len__(self):
         return len(self.imgs_uniform)
-

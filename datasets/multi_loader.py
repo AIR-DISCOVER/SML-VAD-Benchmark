@@ -7,7 +7,6 @@ from torch.utils.data import Dataset
 import torch
 from config import cfg
 
-
 np.random.seed(cfg.RANDOM_SEED)
 
 
@@ -18,6 +17,7 @@ class DomainUniformConcatDataset(Dataset):
     Sample images uniformly across the domains
     If bs_mul is n, this outputs # of domains * n images per batch
     """
+
     @staticmethod
     def cumsum(sequence):
         r, s = [], 0
@@ -44,14 +44,12 @@ class DomainUniformConcatDataset(Dataset):
         print("# domains: {}, Total length: {}, 1 epoch: {}, offsets: {}".format(
             str(len(datasets)), str(self.length), str(len(self)), str(self.offsets)))
 
-
     def __len__(self):
         """
         Returns:
             The number of images in a domain that has minimum image samples
         """
         return min(self.lengths)
-
 
     def _get_batch_from_dataset(self, dataset, idx):
         """
@@ -69,7 +67,6 @@ class DomainUniformConcatDataset(Dataset):
             p_index -= len(dataset)
 
         return dataset[p_index]
-
 
     def __getitem__(self, idx):
         """
@@ -93,4 +90,3 @@ class DomainUniformConcatDataset(Dataset):
         imgs, masks, mask_auxs = torch.stack(imgs, 0), torch.stack(masks, 0), torch.stack(mask_auxs, 0)
 
         return imgs, masks, img_names, mask_auxs
-

@@ -14,7 +14,6 @@ import transforms.transforms as extended_transforms
 from torch.utils.data import DataLoader, ConcatDataset
 import torch
 
-
 num_classes = 19
 ignore_label = 255
 
@@ -31,19 +30,21 @@ def get_train_joint_transform(args, dataset):
     # Geometric image transformations
     train_joint_transform_list = []
     train_joint_transform_list += [
-        joint_transforms.RandomSizeAndCrop(args.crop_size,
-                                           crop_nopad=args.crop_nopad,
-                                           pre_size=args.pre_size,
-                                           scale_min=args.scale_min,
-                                           scale_max=args.scale_max,
-                                           ignore_index=dataset.ignore_label),
+        joint_transforms.RandomSizeAndCrop(
+            args.crop_size,
+            crop_nopad=args.crop_nopad,
+            pre_size=args.pre_size,
+            scale_min=args.scale_min,
+            scale_max=args.scale_max,
+            ignore_index=dataset.ignore_label),
         joint_transforms.Resize(args.crop_size),
-        joint_transforms.RandomHorizontallyFlip()]
+        joint_transforms.RandomHorizontallyFlip()
+    ]
 
     if args.rrotate > 0:
-        train_joint_transform_list += [joint_transforms.RandomRotate(
-            degree=args.rrotate,
-            ignore_index=dataset.ignore_label)]
+        train_joint_transform_list += [
+            joint_transforms.RandomRotate(degree=args.rrotate, ignore_index=dataset.ignore_label)
+        ]
 
     train_joint_transform = joint_transforms.Compose(train_joint_transform_list)
 
@@ -64,20 +65,17 @@ def get_input_transforms(args, dataset):
     train_input_transform = []
     val_input_transform = []
     if args.color_aug > 0.0:
-        train_input_transform += [standard_transforms.RandomApply([
-            standard_transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.5)]
+        train_input_transform += [
+            standard_transforms.RandomApply([standard_transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.5)
+        ]
 
     if args.bblur:
         train_input_transform += [extended_transforms.RandomBilateralBlur()]
     elif args.gblur:
         train_input_transform += [extended_transforms.RandomGaussianBlur()]
 
-    train_input_transform += [
-                              standard_transforms.ToTensor()
-    ]
-    val_input_transform += [
-                            standard_transforms.ToTensor()
-    ]
+    train_input_transform += [standard_transforms.ToTensor()]
+    val_input_transform += [standard_transforms.ToTensor()]
     train_input_transform = standard_transforms.Compose(train_input_transform)
     val_input_transform = standard_transforms.Compose(val_input_transform)
 
@@ -95,8 +93,8 @@ def get_target_transforms(args, dataset):
     """
     target_transform = extended_transforms.MaskToTensor()
     if args.jointwtborder:
-        target_train_transform = extended_transforms.RelaxedBoundaryLossToTensor(
-                dataset.ignore_label, dataset.num_classes)
+        target_train_transform = extended_transforms.RelaxedBoundaryLossToTensor(dataset.ignore_label,
+                                                                                 dataset.num_classes)
     else:
         target_train_transform = extended_transforms.MaskToTensor()
 
@@ -118,14 +116,15 @@ def create_extra_val_loader(args, dataset, val_input_transform, target_transform
     return: validation loaders
     """
     if dataset == 'cityscapes':
-        val_set = cityscapes.CityScapes('fine', 'val', 0,
-                                        transform=val_input_transform,
-                                        target_transform=target_transform,
-                                        cv_split=args.cv)
+        val_set = cityscapes.CityScapes(
+            'fine', 'val', 0, transform=val_input_transform, target_transform=target_transform, cv_split=args.cv)
     elif dataset == 'carla':
-        val_set = carla.Carla('val', 0,
-                                transform=val_input_transform,
-                                target_transform=target_transform,)
+        val_set = carla.Carla(
+            'val',
+            0,
+            transform=val_input_transform,
+            target_transform=target_transform,
+        )
     elif dataset == 'null_loader':
         val_set = nullloader.nullloader(args.crop_size)
     else:
@@ -138,9 +137,13 @@ def create_extra_val_loader(args, dataset, val_input_transform, target_transform
     else:
         val_sampler = None
 
-    val_loader = DataLoader(val_set, batch_size=args.val_batch_size,
-                            num_workers=args.num_workers // 2 , shuffle=False, drop_last=False,
-                            sampler = val_sampler)
+    val_loader = DataLoader(
+        val_set,
+        batch_size=args.val_batch_size,
+        num_workers=args.num_workers // 2,
+        shuffle=False,
+        drop_last=False,
+        sampler=val_sampler)
     return val_loader
 
 
@@ -162,8 +165,7 @@ def setup_loaders(args):
         args.train_batch_size = args.bs_mult
         args.val_batch_size = args.bs_mult_val
 
-
-    args.num_workers = 8 #1 * args.ngpu
+    args.num_workers = 8  #1 * args.ngpu
     if args.test_mode:
         args.num_workers = 1
 
@@ -173,7 +175,7 @@ def setup_loaders(args):
 
     if 'cityscapes' in args.dataset:
         dataset = cityscapes
-        city_mode = args.city_mode #'train' ## Can be trainval
+        city_mode = args.city_mode  #'train' ## Can be trainval
         city_quality = 'fine'
         train_joint_transform_list, train_joint_transform = get_train_joint_transform(args, dataset)
         train_input_transform, val_input_transform = get_input_transforms(args, dataset)
@@ -187,7 +189,9 @@ def setup_loaders(args):
                 coarse_boost_classes = None
 
             train_set = dataset.CityScapesUniform(
-                city_quality, city_mode, args.maxSkip,
+                city_quality,
+                city_mode,
+                args.maxSkip,
                 joint_transform_list=train_joint_transform_list,
                 transform=train_input_transform,
                 target_transform=target_train_transform,
@@ -200,17 +204,17 @@ def setup_loaders(args):
                 coarse_boost_classes=coarse_boost_classes)
         else:
             train_set = dataset.CityScapes(
-                city_quality, city_mode, 0,
+                city_quality,
+                city_mode,
+                0,
                 joint_transform=train_joint_transform,
                 transform=train_input_transform,
                 target_transform=target_train_transform,
                 target_aux_transform=target_aux_train_transform,
                 dump_images=args.dump_augmentation_images)
 
-        val_set = dataset.CityScapes('fine', 'val', 0,
-                                     transform=val_input_transform,
-                                     target_transform=target_transform,
-                                     cv_split=args.cv)
+        val_set = dataset.CityScapes(
+            'fine', 'val', 0, transform=val_input_transform, target_transform=target_transform, cv_split=args.cv)
         train_sets.append(train_set)
         val_sets.append(val_set)
         val_dataset_names.append('cityscapes')
@@ -221,16 +225,20 @@ def setup_loaders(args):
         train_input_transform, val_input_transform = get_input_transforms(args, dataset)
         target_transform, target_train_transform, target_aux_train_transform = get_target_transforms(args, dataset)
 
-        train_set = dataset.Carla("train", 
+        train_set = dataset.Carla(
+            "train",
             joint_transform=train_joint_transform_list,
             transform=train_input_transform,
             target_transform=target_train_transform,
-            target_aux_transform=target_aux_train_transform,)
+            target_aux_transform=target_aux_train_transform,
+        )
 
-        val_set = dataset.Carla("val", 
+        val_set = dataset.Carla(
+            "val",
             transform=val_input_transform,
-            target_transform=target_transform,)
-        
+            target_transform=target_transform,
+        )
+
         train_sets.append(train_set)
         val_sets.append(val_set)
         val_dataset_names.append('carla')
@@ -263,9 +271,13 @@ def setup_loaders(args):
             val_sampler = DistributedSampler(val_set, pad=False, permutation=False, consecutive_sample=False)
         else:
             val_sampler = None
-        val_loader = DataLoader(val_set, batch_size=args.val_batch_size,
-                                num_workers=args.num_workers // 2 , shuffle=False, drop_last=False,
-                                sampler = val_sampler)
+        val_loader = DataLoader(
+            val_set,
+            batch_size=args.val_batch_size,
+            num_workers=args.num_workers // 2,
+            shuffle=False,
+            drop_last=False,
+            sampler=val_sampler)
         val_loaders[val_dataset_names[i]] = val_loader
 
     if args.syncbn:
@@ -273,12 +285,17 @@ def setup_loaders(args):
     else:
         train_sampler = None
 
-    train_loader = DataLoader(train_set, batch_size=args.train_batch_size,
-                              num_workers=args.num_workers, shuffle=(train_sampler is None), drop_last=True, sampler = train_sampler)
+    train_loader = DataLoader(
+        train_set,
+        batch_size=args.train_batch_size,
+        num_workers=args.num_workers,
+        shuffle=(train_sampler is None),
+        drop_last=True,
+        sampler=train_sampler)
 
     extra_val_loader = {}
     for val_dataset in args.val_dataset:
-        extra_val_loader[val_dataset] = create_extra_val_loader(args, val_dataset, val_input_transform, target_transform, val_sampler)
+        extra_val_loader[val_dataset] = create_extra_val_loader(args, val_dataset, val_input_transform,
+                                                                target_transform, val_sampler)
 
     return train_loader, val_loaders, train_set, extra_val_loader
-

@@ -38,9 +38,7 @@ import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import network.mynn as mynn
 
-__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
-           'resnet152']
-
+__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -53,8 +51,7 @@ model_urls = {
 
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=1, bias=False)
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
 
 
 class BasicBlock(nn.Module):
@@ -102,8 +99,7 @@ class Bottleneck(nn.Module):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = mynn.Norm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
-                               padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn2 = mynn.Norm2d(planes)
         self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1, bias=False)
         self.bn3 = mynn.Norm2d(planes * self.expansion)
@@ -134,7 +130,6 @@ class Bottleneck(nn.Module):
         return out
 
 
-
 class ResNet3X3(nn.Module):
     """
     Resnet Global Module for Initialization
@@ -145,19 +140,16 @@ class ResNet3X3(nn.Module):
         self.inplanes = 128
         super(ResNet3X3, self).__init__()
 
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1,
-                               bias=False)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1, bias=False)
 
         self.bn1 = mynn.Norm2d(64)
         self.relu1 = nn.ReLU(inplace=True)
 
-        self.conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1,
-                               bias=False)
+        self.conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = mynn.Norm2d(64)
         self.relu2 = nn.ReLU(inplace=True)
 
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1,
-                               bias=False)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn3 = mynn.Norm2d(self.inplanes)
         self.relu3 = nn.ReLU(inplace=True)
 
@@ -182,8 +174,7 @@ class ResNet3X3(nn.Module):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, bias=False),
                 mynn.Norm2d(planes * block.expansion),
             )
 
@@ -224,11 +215,11 @@ class ResNet(nn.Module):
     """
     Resnet Global Module for Initialization
     """
+
     def __init__(self, block, layers, num_classes=1000):
         self.inplanes = 64
         super(ResNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
-                               bias=False)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = mynn.Norm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -252,8 +243,7 @@ class ResNet(nn.Module):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, bias=False),
                 mynn.Norm2d(planes * block.expansion),
             )
 
@@ -338,8 +328,6 @@ def resnet101(pretrained=True, **kwargs):
         # model.load_state_dict(torch.load('./pretrained/resnet101-imagenet.pth', map_location="cpu"))
         mynn.forgiving_state_restore(model, torch.load('./pretrained/resnet101-imagenet.pth', map_location="cpu"))
     return model
-
-
 
 
 def resnet152(pretrained=True, **kwargs):

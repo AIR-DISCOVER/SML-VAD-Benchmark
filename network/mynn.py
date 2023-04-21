@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch
 from config import cfg
 
+
 def Norm2d(in_channels):
     """
     Custom Norm Function to allow flexible switching
@@ -19,10 +20,12 @@ def freeze_weights(*models):
         for k in model.parameters():
             k.requires_grad = False
 
+
 def unfreeze_weights(*models):
     for model in models:
         for k in model.parameters():
             k.requires_grad = True
+
 
 def initialize_weights(*models):
     """
@@ -43,6 +46,7 @@ def initialize_weights(*models):
                 module.weight.data.fill_(1)
                 module.bias.data.zero_()
 
+
 def initialize_embedding(*models):
     """
     Initialize Model Weights
@@ -50,16 +54,15 @@ def initialize_embedding(*models):
     for model in models:
         for module in model.modules():
             if isinstance(module, nn.Embedding):
-                module.weight.data.zero_() #original
-
+                module.weight.data.zero_()  #original
 
 
 def Upsample(x, size):
     """
     Wrapper Around the Upsample Call
     """
-    return nn.functional.interpolate(x, size=size, mode='bilinear',
-                                     align_corners=True)
+    return nn.functional.interpolate(x, size=size, mode='bilinear', align_corners=True)
+
 
 def forgiving_state_restore(net, loaded_dict):
     """
@@ -79,24 +82,29 @@ def forgiving_state_restore(net, loaded_dict):
     net.load_state_dict(net_state_dict)
     return net
 
+
 def Zero_Masking(input_tensor, mask_org):
     output = input_tensor.clone()
     output.mul_(mask_org)
     return output
 
+
 def RandomPosZero_Masking(input_tensor, p=0.5):
     output = input_tensor.clone()
     noise_b = input_tensor.new().resize_(input_tensor.size(0), 1, input_tensor.size(2), input_tensor.size(3))
-    noise_u = input_tensor.new().resize_(input_tensor.size(0), input_tensor.size(1), input_tensor.size(2), input_tensor.size(3))
+    noise_u = input_tensor.new().resize_(
+        input_tensor.size(0), input_tensor.size(1), input_tensor.size(2), input_tensor.size(3))
     noise_b.bernoulli_(1 - p)
     noise_b = noise_b.expand_as(input_tensor)
     output.mul_(noise_b)
     return output
 
+
 def RandomVal_Masking(input_tensor, mask_org):
     output = input_tensor.clone()
-    noise_u = input_tensor.new().resize_(input_tensor.size(0), input_tensor.size(1), input_tensor.size(2), input_tensor.size(3))
-    mask = (mask_org==0).type(input_tensor.type())
+    noise_u = input_tensor.new().resize_(
+        input_tensor.size(0), input_tensor.size(1), input_tensor.size(2), input_tensor.size(3))
+    mask = (mask_org == 0).type(input_tensor.type())
     mask = mask.expand_as(input_tensor)
     mask = torch.mul(mask, noise_u.uniform_(torch.min(input_tensor).item(), torch.max(input_tensor).item()))
     mask_org = mask_org.expand_as(input_tensor)
@@ -104,12 +112,14 @@ def RandomVal_Masking(input_tensor, mask_org):
     output.add_(mask)
     return output
 
+
 def RandomPosVal_Masking(input_tensor, p=0.5):
     output = input_tensor.clone()
     noise_b = input_tensor.new().resize_(input_tensor.size(0), 1, input_tensor.size(2), input_tensor.size(3))
-    noise_u = input_tensor.new().resize_(input_tensor.size(0), input_tensor.size(1), input_tensor.size(2), input_tensor.size(3))
+    noise_u = input_tensor.new().resize_(
+        input_tensor.size(0), input_tensor.size(1), input_tensor.size(2), input_tensor.size(3))
     mask = noise_b.bernoulli_(1 - p)
-    mask = (mask==0).type(input_tensor.type())
+    mask = (mask == 0).type(input_tensor.type())
     mask = mask.expand_as(input_tensor)
     mask = torch.mul(mask, noise_u.uniform_(torch.min(input_tensor).item(), torch.max(input_tensor).item()))
     noise_b = noise_b.expand_as(input_tensor)
@@ -117,12 +127,13 @@ def RandomPosVal_Masking(input_tensor, p=0.5):
     output.add_(mask)
     return output
 
+
 def masking(input_tensor, p=0.5):
     output = input_tensor.clone()
     noise_b = input_tensor.new().resize_(input_tensor.size(0), 1, input_tensor.size(2), input_tensor.size(3))
     noise_u = input_tensor.new().resize_(input_tensor.size(0), 1, input_tensor.size(2), input_tensor.size(3))
     mask = noise_b.bernoulli_(1 - p)
-    mask = (mask==0).type(input_tensor.type())
+    mask = (mask == 0).type(input_tensor.type())
     mask.mul_(noise_u.uniform_(torch.min(input_tensor).item(), torch.max(input_tensor).item()))
     # mask.mul_(noise_u.uniform_(5, 10))
     noise_b = noise_b.expand_as(input_tensor)

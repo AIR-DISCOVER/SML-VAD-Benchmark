@@ -37,7 +37,6 @@ from kornia.morphology import dilation, erosion
 
 import torchvision.models as models
 
-
 # NOTE(shjung13): These are for obtaining non-boundary masks
 # We calculate the boundary mask by subtracting the eroded prediction map from the dilated one
 # These are filters for erosion and dilation (L1)
@@ -60,9 +59,8 @@ d_k9 = torch.zeros((1, 1, 2 * 9 + 1, 2 * 9 + 1)).cuda()
 
 d_ks = {1: d_k1, 2: d_k2, 3: d_k3, 4: d_k4, 5: d_k5, 6: d_k6, 7: d_k7, 8: d_k8, 9: d_k9}
 
-
 for k, v in d_ks.items():
-    v[:,:,k,k] = 1
+    v[:, :, k, k] = 1
     for i in range(k):
         v = dilation(v, selem_dilation)
     d_ks[k] = v.squeeze(0).squeeze(0)
@@ -102,23 +100,21 @@ class _AtrousSpatialPyramidPoolingModule(nn.Module):
         self.features = []
         # 1x1
         self.features.append(
-            nn.Sequential(nn.Conv2d(in_dim, reduction_dim, kernel_size=1, bias=False),
-                          Norm2d(reduction_dim), nn.ReLU(inplace=True)))
+            nn.Sequential(
+                nn.Conv2d(in_dim, reduction_dim, kernel_size=1, bias=False), Norm2d(reduction_dim),
+                nn.ReLU(inplace=True)))
         # other rates
         for r in rates:
-            self.features.append(nn.Sequential(
-                nn.Conv2d(in_dim, reduction_dim, kernel_size=3,
-                          dilation=r, padding=r, bias=False),
-                Norm2d(reduction_dim),
-                nn.ReLU(inplace=True)
-            ))
+            self.features.append(
+                nn.Sequential(
+                    nn.Conv2d(in_dim, reduction_dim, kernel_size=3, dilation=r, padding=r, bias=False),
+                    Norm2d(reduction_dim), nn.ReLU(inplace=True)))
         self.features = torch.nn.ModuleList(self.features)
 
         # img level features
         self.img_pooling = nn.AdaptiveAvgPool2d(1)
         self.img_conv = nn.Sequential(
-            nn.Conv2d(in_dim, 256, kernel_size=1, bias=False),
-            Norm2d(256), nn.ReLU(inplace=True))
+            nn.Conv2d(in_dim, 256, kernel_size=1, bias=False), Norm2d(256), nn.ReLU(inplace=True))
 
     def forward(self, x):
         x_size = x.size()
@@ -133,6 +129,7 @@ class _AtrousSpatialPyramidPoolingModule(nn.Module):
             out = torch.cat((out, y), 1)
         return out
 
+
 def find_boundaries(label):
     """
     Calculate boundary mask by getting diff of dilated and eroded prediction maps
@@ -142,6 +139,7 @@ def find_boundaries(label):
     ### save_image(boundaries, f'boundaries_{boundaries.float().mean():.2f}.png', normalize=True)
 
     return boundaries
+
 
 def expand_boundaries(boundaries, r=0):
     """
@@ -158,8 +156,14 @@ class BoundarySuppressionWithSmoothing(nn.Module):
     """
     Apply boundary suppression and dilated smoothing
     """
-    def __init__(self, boundary_suppression=True, boundary_width=4, boundary_iteration=4,
-                 dilated_smoothing=True, kernel_size=7, dilation=6):
+
+    def __init__(self,
+                 boundary_suppression=True,
+                 boundary_width=4,
+                 boundary_iteration=4,
+                 dilated_smoothing=True,
+                 kernel_size=7,
+                 dilation=6):
         super(BoundarySuppressionWithSmoothing, self).__init__()
         self.kernel_size = kernel_size
         self.dilation = dilation
@@ -169,7 +173,9 @@ class BoundarySuppressionWithSmoothing(nn.Module):
 
         sigma = 1.0
         size = 7
-        gaussian_kernel = np.fromfunction(lambda x, y: (1/(2*math.pi*sigma**2)) * math.e ** ((-1*((x-(size-1)/2)**2+(y-(size-1)/2)**2))/(2*sigma**2)), (size, size))
+        gaussian_kernel = np.fromfunction(
+            lambda x, y: (1 / (2 * math.pi * sigma**2)) * math.e**((-1 * (
+                (x - (size - 1) / 2)**2 + (y - (size - 1) / 2)**2)) / (2 * sigma**2)), (size, size))
         gaussian_kernel /= np.sum(gaussian_kernel)
         gaussian_kernel = torch.Tensor(gaussian_kernel).unsqueeze(0).unsqueeze(0)
         self.dilated_smoothing = dilated_smoothing
@@ -179,7 +185,6 @@ class BoundarySuppressionWithSmoothing(nn.Module):
 
         self.second_conv = nn.Conv2d(1, 1, kernel_size=self.kernel_size, stride=1, dilation=self.dilation, bias=False)
         self.second_conv.weight = torch.nn.Parameter(gaussian_kernel)
-
 
     def forward(self, x, prediction=None):
         if len(x.shape) == 3:
@@ -260,8 +265,15 @@ class DeepV3Plus(nn.Module):
     with skip connections
     """
 
-    def __init__(self, num_classes, trunk='resnet-101', criterion=None, criterion_aux=None,
-                variant='D', skip='m1', skip_num=48, args=None):
+    def __init__(self,
+                 num_classes,
+                 trunk='resnet-101',
+                 criterion=None,
+                 criterion_aux=None,
+                 variant='D',
+                 skip='m1',
+                 skip_num=48,
+                 args=None):
         super(DeepV3Plus, self).__init__()
         self.criterion = criterion
         self.criterion_aux = criterion_aux
@@ -269,7 +281,7 @@ class DeepV3Plus(nn.Module):
         self.args = args
         self.trunk = trunk
         self.num_classes = num_classes
-        self.score_mode=args.score_mode
+        self.score_mode = args.score_mode
         self.enable_post_processing = (args.enable_boundary_suppression or args.enable_dilated_smoothing)
 
         if trunk == 'shufflenetv2':
@@ -287,6 +299,7 @@ class DeepV3Plus(nn.Module):
             self.layer4 = resnet.conv5
 
             class Layer0(nn.Module):
+
                 def __init__(self, iw):
                     super(Layer0, self).__init__()
                     self.layer = nn.Sequential(resnet.conv1, resnet.maxpool)
@@ -298,6 +311,7 @@ class DeepV3Plus(nn.Module):
                     return x
 
             class Layer4(nn.Module):
+
                 def __init__(self, iw):
                     super(Layer4, self).__init__()
                     self.layer = resnet.conv5
@@ -309,7 +323,6 @@ class DeepV3Plus(nn.Module):
                     x = self.layer(x)
                     return x
 
-
             self.layer0 = Layer0(iw=0)
             self.layer1 = resnet.stage2
             self.layer2 = resnet.stage3
@@ -318,14 +331,14 @@ class DeepV3Plus(nn.Module):
 
             if self.variant == 'D':
                 for n, m in self.layer2.named_modules():
-                    if isinstance(m, nn.Conv2d) and m.stride==(2,2):
+                    if isinstance(m, nn.Conv2d) and m.stride == (2, 2):
                         m.dilation, m.padding, m.stride = (2, 2), (2, 2), (1, 1)
                 for n, m in self.layer3.named_modules():
-                    if isinstance(m, nn.Conv2d) and m.stride==(2,2):
+                    if isinstance(m, nn.Conv2d) and m.stride == (2, 2):
                         m.dilation, m.padding, m.stride = (4, 4), (4, 4), (1, 1)
             elif self.variant == 'D16':
                 for n, m in self.layer3.named_modules():
-                    if isinstance(m, nn.Conv2d) and m.stride==(2,2):
+                    if isinstance(m, nn.Conv2d) and m.stride == (2, 2):
                         m.dilation, m.padding, m.stride = (2, 2), (2, 2), (1, 1)
             else:
                 # raise 'unknown deepv3 variant: {}'.format(self.variant)
@@ -342,11 +355,12 @@ class DeepV3Plus(nn.Module):
                 final_channel = 1280
 
                 print("# of layers", len(resnet.layers))
-                self.layer0 = nn.Sequential(resnet.layers[0],resnet.layers[1],resnet.layers[2],
-                                            resnet.layers[3],resnet.layers[4],resnet.layers[5],resnet.layers[6],resnet.layers[7])   # 16
-                self.layer1 = nn.Sequential(resnet.layers[8], resnet.layers[9]) # 24, 40
-                self.layer2 = nn.Sequential(resnet.layers[10], resnet.layers[11])   # 48, 96
-                self.layer3 = nn.Sequential(resnet.layers[12], resnet.layers[13]) # 160, 320
+                self.layer0 = nn.Sequential(resnet.layers[0], resnet.layers[1], resnet.layers[2], resnet.layers[3],
+                                            resnet.layers[4], resnet.layers[5], resnet.layers[6],
+                                            resnet.layers[7])  # 16
+                self.layer1 = nn.Sequential(resnet.layers[8], resnet.layers[9])  # 24, 40
+                self.layer2 = nn.Sequential(resnet.layers[10], resnet.layers[11])  # 48, 96
+                self.layer3 = nn.Sequential(resnet.layers[12], resnet.layers[13])  # 160, 320
                 self.layer4 = nn.Sequential(resnet.layers[14], resnet.layers[15], resnet.layers[16])  # 1280
             else:
                 resnet = models.mnasnet1_0(pretrained=True)
@@ -358,23 +372,24 @@ class DeepV3Plus(nn.Module):
                 final_channel = 1280
 
                 print("# of layers", len(resnet.layers))
-                self.layer0 = nn.Sequential(resnet.layers[0],resnet.layers[1],resnet.layers[2],
-                                            resnet.layers[3],resnet.layers[4],resnet.layers[5],resnet.layers[6],resnet.layers[7])   # 16
-                self.layer1 = nn.Sequential(resnet.layers[8], resnet.layers[9]) # 24, 40
-                self.layer2 = nn.Sequential(resnet.layers[10], resnet.layers[11])   # 48, 96
-                self.layer3 = nn.Sequential(resnet.layers[12], resnet.layers[13]) # 160, 320
+                self.layer0 = nn.Sequential(resnet.layers[0], resnet.layers[1], resnet.layers[2], resnet.layers[3],
+                                            resnet.layers[4], resnet.layers[5], resnet.layers[6],
+                                            resnet.layers[7])  # 16
+                self.layer1 = nn.Sequential(resnet.layers[8], resnet.layers[9])  # 24, 40
+                self.layer2 = nn.Sequential(resnet.layers[10], resnet.layers[11])  # 48, 96
+                self.layer3 = nn.Sequential(resnet.layers[12], resnet.layers[13])  # 160, 320
                 self.layer4 = nn.Sequential(resnet.layers[14], resnet.layers[15], resnet.layers[16])  # 1280
 
             if self.variant == 'D':
                 for n, m in self.layer2.named_modules():
-                    if isinstance(m, nn.Conv2d) and m.stride==(2,2):
+                    if isinstance(m, nn.Conv2d) and m.stride == (2, 2):
                         m.dilation, m.padding, m.stride = (2, 2), (2, 2), (1, 1)
                 for n, m in self.layer3.named_modules():
-                    if isinstance(m, nn.Conv2d) and m.stride==(2,2):
+                    if isinstance(m, nn.Conv2d) and m.stride == (2, 2):
                         m.dilation, m.padding, m.stride = (4, 4), (4, 4), (1, 1)
             elif self.variant == 'D16':
                 for n, m in self.layer3.named_modules():
-                    if isinstance(m, nn.Conv2d) and m.stride==(2,2):
+                    if isinstance(m, nn.Conv2d) and m.stride == (2, 2):
                         m.dilation, m.padding, m.stride = (2, 2), (2, 2), (1, 1)
             else:
                 # raise 'unknown deepv3 variant: {}'.format(self.variant)
@@ -390,10 +405,9 @@ class DeepV3Plus(nn.Module):
 
             final_channel = 1280
             resnet = models.mobilenet_v2(pretrained=True)
-            self.layer0 = nn.Sequential(resnet.features[0],
-                                        resnet.features[1])
-            self.layer1 = nn.Sequential(resnet.features[2], resnet.features[3],
-                                        resnet.features[4], resnet.features[5], resnet.features[6])
+            self.layer0 = nn.Sequential(resnet.features[0], resnet.features[1])
+            self.layer1 = nn.Sequential(resnet.features[2], resnet.features[3], resnet.features[4], resnet.features[5],
+                                        resnet.features[6])
             self.layer2 = nn.Sequential(resnet.features[7], resnet.features[8], resnet.features[9], resnet.features[10])
 
             self.layer3 = nn.Sequential(resnet.features[11], resnet.features[12], resnet.features[13],
@@ -403,14 +417,14 @@ class DeepV3Plus(nn.Module):
 
             if self.variant == 'D':
                 for n, m in self.layer2.named_modules():
-                    if isinstance(m, nn.Conv2d) and m.stride==(2,2):
+                    if isinstance(m, nn.Conv2d) and m.stride == (2, 2):
                         m.dilation, m.padding, m.stride = (2, 2), (2, 2), (1, 1)
                 for n, m in self.layer3.named_modules():
-                    if isinstance(m, nn.Conv2d) and m.stride==(2,2):
+                    if isinstance(m, nn.Conv2d) and m.stride == (2, 2):
                         m.dilation, m.padding, m.stride = (4, 4), (4, 4), (1, 1)
             elif self.variant == 'D16':
                 for n, m in self.layer3.named_modules():
-                    if isinstance(m, nn.Conv2d) and m.stride==(2,2):
+                    if isinstance(m, nn.Conv2d) and m.stride == (2, 2):
                         m.dilation, m.padding, m.stride = (2, 2), (2, 2), (1, 1)
             else:
                 # raise 'unknown deepv3 variant: {}'.format(self.variant)
@@ -435,11 +449,10 @@ class DeepV3Plus(nn.Module):
             elif trunk == 'resnet-50':
                 resnet = Resnet.resnet50()
                 resnet.layer0 = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool)
-            elif trunk == 'resnet-101': # three 3 X 3
+            elif trunk == 'resnet-101':  # three 3 X 3
                 resnet = Resnet.resnet101(pretrained=True)
-                resnet.layer0 = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu1,
-                                              resnet.conv2, resnet.bn2, resnet.relu2,
-                                              resnet.conv3, resnet.bn3, resnet.relu3, resnet.maxpool)
+                resnet.layer0 = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu1, resnet.conv2, resnet.bn2,
+                                              resnet.relu2, resnet.conv3, resnet.bn3, resnet.relu3, resnet.maxpool)
             elif trunk == 'resnet-152':
                 resnet = Resnet.resnet152()
                 resnet.layer0 = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool)
@@ -512,46 +525,32 @@ class DeepV3Plus(nn.Module):
         self.class_var = None
 
         self.output_stride = os
-        self.aspp = _AtrousSpatialPyramidPoolingModule(final_channel, 256,
-                                                       output_stride=os)
+        self.aspp = _AtrousSpatialPyramidPoolingModule(final_channel, 256, output_stride=os)
 
         self.bot_fine = nn.Sequential(
-            nn.Conv2d(channel_3rd, 48, kernel_size=1, bias=False),
-            Norm2d(48),
-            nn.ReLU(inplace=True))
+            nn.Conv2d(channel_3rd, 48, kernel_size=1, bias=False), Norm2d(48), nn.ReLU(inplace=True))
 
         self.bot_aspp = nn.Sequential(
-            nn.Conv2d(1280, 256, kernel_size=1, bias=False),
-            Norm2d(256),
-            nn.ReLU(inplace=True))
+            nn.Conv2d(1280, 256, kernel_size=1, bias=False), Norm2d(256), nn.ReLU(inplace=True))
 
         self.final1 = nn.Sequential(
-            nn.Conv2d(304, 256, kernel_size=3, padding=1, bias=False),
-            Norm2d(256),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False),
-            Norm2d(256),
-            nn.ReLU(inplace=True))
+            nn.Conv2d(304, 256, kernel_size=3, padding=1, bias=False), Norm2d(256), nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False), Norm2d(256), nn.ReLU(inplace=True))
 
-        self.final2 = nn.Sequential(
-            nn.Conv2d(256, num_classes, kernel_size=1, bias=True))
+        self.final2 = nn.Sequential(nn.Conv2d(256, num_classes, kernel_size=1, bias=True))
 
         self.dsn = nn.Sequential(
-            nn.Conv2d(prev_final_channel, 512, kernel_size=3, stride=1, padding=1),
-            Norm2d(512),
-            nn.ReLU(inplace=True),
-            nn.Dropout2d(0.1),
-            nn.Conv2d(512, num_classes, kernel_size=1, stride=1, padding=0, bias=True)
-        )
+            nn.Conv2d(prev_final_channel, 512, kernel_size=3, stride=1, padding=1), Norm2d(512), nn.ReLU(inplace=True),
+            nn.Dropout2d(0.1), nn.Conv2d(512, num_classes, kernel_size=1, stride=1, padding=0, bias=True))
 
         if self.enable_post_processing:
             self.multi_scale = BoundarySuppressionWithSmoothing(
-                    boundary_suppression=args.enable_boundary_suppression,
-                    boundary_width=args.boundary_width,
-                    boundary_iteration=args.boundary_iteration,
-                    dilated_smoothing=args.enable_dilated_smoothing,
-                    kernel_size=args.smoothing_kernel_size,
-                    dilation=args.smoothing_kernel_dilation)
+                boundary_suppression=args.enable_boundary_suppression,
+                boundary_width=args.boundary_width,
+                boundary_iteration=args.boundary_iteration,
+                dilated_smoothing=args.enable_dilated_smoothing,
+                kernel_size=args.smoothing_kernel_size,
+                dilation=args.smoothing_kernel_dilation)
 
         initialize_weights(self.dsn)
 
@@ -639,8 +638,14 @@ def DeepR18V3PlusD(args, num_classes, criterion, criterion_aux):
     Resnet 18 Based Network
     """
     print("Model : DeepLabv3+, Backbone : ResNet-18")
-    return DeepV3Plus(num_classes, trunk='resnet-18', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D32', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='resnet-18',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D32',
+        skip='m1',
+        args=args)
 
 
 def DeepR50V3PlusD_OS8(args, num_classes, criterion, criterion_aux):
@@ -648,32 +653,59 @@ def DeepR50V3PlusD_OS8(args, num_classes, criterion, criterion_aux):
     Resnet 50 Based Network
     """
     print("Model : DeepLabv3+, Backbone : ResNet-50")
-    return DeepV3Plus(num_classes, trunk='resnet-50', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='resnet-50',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D',
+        skip='m1',
+        args=args)
+
 
 def DeepR50V3PlusD(args, num_classes, criterion, criterion_aux):
     """
     Resnet 50 Based Network
     """
     print("Model : DeepLabv3+, Backbone : ResNet-50")
-    return DeepV3Plus(num_classes, trunk='resnet-50', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D16', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='resnet-50',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D16',
+        skip='m1',
+        args=args)
+
 
 def DeepR101V3PlusD(args, num_classes, criterion, criterion_aux):
     """
     Resnet 101 Based Network
     """
     print("Model : DeepLabv3+, Backbone : ResNet-101")
-    return DeepV3Plus(num_classes, trunk='resnet-101', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D16', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='resnet-101',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D16',
+        skip='m1',
+        args=args)
+
 
 def DeepR101V3PlusD_OS8(args, num_classes, criterion, criterion_aux):
     """
     Resnet 101 Based Network
     """
     print("Model : DeepLabv3+, Backbone : ResNet-101")
-    return DeepV3Plus(num_classes, trunk='resnet-101', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='resnet-101',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D',
+        skip='m1',
+        args=args)
 
 
 def DeepR152V3PlusD_OS8(args, num_classes, criterion, criterion_aux):
@@ -681,9 +713,14 @@ def DeepR152V3PlusD_OS8(args, num_classes, criterion, criterion_aux):
     Resnet 152 Based Network
     """
     print("Model : DeepLabv3+, Backbone : ResNet-152")
-    return DeepV3Plus(num_classes, trunk='resnet-152', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D', skip='m1', args=args)
-
+    return DeepV3Plus(
+        num_classes,
+        trunk='resnet-152',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D',
+        skip='m1',
+        args=args)
 
 
 def DeepResNext50V3PlusD(args, num_classes, criterion, criterion_aux):
@@ -691,48 +728,89 @@ def DeepResNext50V3PlusD(args, num_classes, criterion, criterion_aux):
     Resnext 50 Based Network
     """
     print("Model : DeepLabv3+, Backbone : ResNext-50 32x4d")
-    return DeepV3Plus(num_classes, trunk='resnext-50', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D16', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='resnext-50',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D16',
+        skip='m1',
+        args=args)
+
 
 def DeepResNext101V3PlusD(args, num_classes, criterion, criterion_aux):
     """
     Resnext 101 Based Network
     """
     print("Model : DeepLabv3+, Backbone : ResNext-101 32x8d")
-    return DeepV3Plus(num_classes, trunk='resnext-101', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D16', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='resnext-101',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D16',
+        skip='m1',
+        args=args)
+
 
 def DeepWideResNet50V3PlusD(args, num_classes, criterion, criterion_aux):
     """
     Wide ResNet 50 Based Network
     """
     print("Model : DeepLabv3+, Backbone : wide_resnet-50")
-    return DeepV3Plus(num_classes, trunk='wide_resnet-50', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D16', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='wide_resnet-50',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D16',
+        skip='m1',
+        args=args)
+
 
 def DeepWideResNet50V3PlusD_OS8(args, num_classes, criterion, criterion_aux):
     """
     Wide ResNet 50 Based Network
     """
     print("Model : DeepLabv3+, Backbone : wide_resnet-50")
-    return DeepV3Plus(num_classes, trunk='wide_resnet-50', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='wide_resnet-50',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D',
+        skip='m1',
+        args=args)
+
 
 def DeepWideResNet101V3PlusD(args, num_classes, criterion, criterion_aux):
     """
     Wide ResNet 101 Based Network
     """
     print("Model : DeepLabv3+, Backbone : wide_resnet-101")
-    return DeepV3Plus(num_classes, trunk='wide_resnet-101', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D16', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='wide_resnet-101',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D16',
+        skip='m1',
+        args=args)
+
 
 def DeepWideResNet101V3PlusD_OS8(args, num_classes, criterion, criterion_aux):
     """
     Wide ResNet 101 Based Network
     """
     print("Model : DeepLabv3+, Backbone : wide_resnet-101")
-    return DeepV3Plus(num_classes, trunk='wide_resnet-101', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='wide_resnet-101',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D',
+        skip='m1',
+        args=args)
 
 
 def DeepResNext101V3PlusD_OS8(args, num_classes, criterion, criterion_aux):
@@ -740,24 +818,44 @@ def DeepResNext101V3PlusD_OS8(args, num_classes, criterion, criterion_aux):
     ResNext 101 Based Network
     """
     print("Model : DeepLabv3+, Backbone : resnext-101")
-    return DeepV3Plus(num_classes, trunk='resnext-101', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='resnext-101',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D',
+        skip='m1',
+        args=args)
+
 
 def DeepResNext101V3PlusD_OS4(args, num_classes, criterion, criterion_aux):
     """
     ResNext 101 Based Network
     """
     print("Model : DeepLabv3+, Backbone : resnext-101")
-    return DeepV3Plus(num_classes, trunk='resnext-101', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D4', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='resnext-101',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D4',
+        skip='m1',
+        args=args)
+
 
 def DeepShuffleNetV3PlusD_OS32(args, num_classes, criterion, criterion_aux):
     """
     ShuffleNet Based Network
     """
     print("Model : DeepLabv3+, Backbone : shufflenetv2")
-    return DeepV3Plus(num_classes, trunk='shufflenetv2', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D32', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='shufflenetv2',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D32',
+        skip='m1',
+        args=args)
 
 
 def DeepMNASNet05V3PlusD(args, num_classes, criterion, criterion_aux):
@@ -765,16 +863,29 @@ def DeepMNASNet05V3PlusD(args, num_classes, criterion, criterion_aux):
     MNASNET Based Network
     """
     print("Model : DeepLabv3+, Backbone : mnas_0_5")
-    return DeepV3Plus(num_classes, trunk='mnasnet_05', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D16', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='mnasnet_05',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D16',
+        skip='m1',
+        args=args)
+
 
 def DeepMNASNet10V3PlusD(args, num_classes, criterion, criterion_aux):
     """
     MNASNET Based Network
     """
     print("Model : DeepLabv3+, Backbone : mnas_1_0")
-    return DeepV3Plus(num_classes, trunk='mnasnet_10', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D16', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='mnasnet_10',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D16',
+        skip='m1',
+        args=args)
 
 
 def DeepShuffleNetV3PlusD(args, num_classes, criterion, criterion_aux):
@@ -782,29 +893,56 @@ def DeepShuffleNetV3PlusD(args, num_classes, criterion, criterion_aux):
     ShuffleNet Based Network
     """
     print("Model : DeepLabv3+, Backbone : shufflenetv2")
-    return DeepV3Plus(num_classes, trunk='shufflenetv2', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D16', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='shufflenetv2',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D16',
+        skip='m1',
+        args=args)
+
 
 def DeepMobileNetV3PlusD(args, num_classes, criterion, criterion_aux):
     """
     ShuffleNet Based Network
     """
     print("Model : DeepLabv3+, Backbone : mobilenetv2")
-    return DeepV3Plus(num_classes, trunk='mobilenetv2', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D16', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='mobilenetv2',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D16',
+        skip='m1',
+        args=args)
+
 
 def DeepMobileNetV3PlusD_OS8(args, num_classes, criterion, criterion_aux):
     """
     ShuffleNet Based Network
     """
     print("Model : DeepLabv3+, Backbone : mobilenetv2")
-    return DeepV3Plus(num_classes, trunk='mobilenetv2', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='mobilenetv2',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D',
+        skip='m1',
+        args=args)
+
 
 def DeepShuffleNetV3PlusD_OS8(args, num_classes, criterion, criterion_aux):
     """
     ShuffleNet Based Network
     """
     print("Model : DeepLabv3+, Backbone : shufflenetv2")
-    return DeepV3Plus(num_classes, trunk='shufflenetv2', criterion=criterion, criterion_aux=criterion_aux,
-                    variant='D', skip='m1', args=args)
+    return DeepV3Plus(
+        num_classes,
+        trunk='shufflenetv2',
+        criterion=criterion,
+        criterion_aux=criterion_aux,
+        variant='D',
+        skip='m1',
+        args=args)

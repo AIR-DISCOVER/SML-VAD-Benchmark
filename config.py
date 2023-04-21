@@ -30,18 +30,14 @@ Source License
 #Config
 ##############################################################################
 
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-
 import torch
 
-
 from utils.attr_dict import AttrDict
-
 
 __C = AttrDict()
 cfg = __C
@@ -63,7 +59,6 @@ __C.REDUCE_BORDER_EPOCH = -1
 # Comma Seperated List of class id to relax
 __C.STRICTBORDERCLASS = None
 
-
 #Attribute Dictionary for Dataset
 __C.DATASET = AttrDict()
 #Cityscapes Dir Location
@@ -73,10 +68,10 @@ __C.DATASET.CITYSCAPES_AUG_DIR = ''
 #Number of splits to support
 __C.DATASET.CV_SPLITS = 3
 
-
 __C.MODEL = AttrDict()
 __C.MODEL.BN = 'pytorch-syncnorm'
 __C.MODEL.BNFUNC = torch.nn.SyncBatchNorm
+
 
 def assert_and_infer_cfg(args, make_immutable=True, train_mode=True):
     """Call this function in your script after you have finished setting all cfg

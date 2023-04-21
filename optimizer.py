@@ -40,20 +40,24 @@ def get_optimizer(args, net):
 
     if args.sgd:
         if args.backbone_lr > 0.0:
-            optimizer = optim.SGD([
-                                    {'params': base_params},
-                                    {'params': resnet_params, 'lr':args.backbone_lr}
-                                ],
-                                lr=args.lr,
-                                weight_decay=5e-4, #args.weight_decay,
-                                momentum=args.momentum,
-                                nesterov=False)
+            optimizer = optim.SGD(
+                [{
+                    'params': base_params
+                }, {
+                    'params': resnet_params,
+                    'lr': args.backbone_lr
+                }],
+                lr=args.lr,
+                weight_decay=5e-4,  #args.weight_decay,
+                momentum=args.momentum,
+                nesterov=False)
         else:
-            optimizer = optim.SGD(param_groups,
-                                  lr=args.lr,
-                                  weight_decay=5e-4, #args.weight_decay,
-                                  momentum=args.momentum,
-                                  nesterov=False)
+            optimizer = optim.SGD(
+                param_groups,
+                lr=args.lr,
+                weight_decay=5e-4,  #args.weight_decay,
+                momentum=args.momentum,
+                nesterov=False)
     else:
         raise ValueError('Not a valid optimizer')
 
@@ -84,7 +88,7 @@ def load_weights(net, optimizer, scheduler, snapshot_file, restore_optimizer_boo
     """
     logging.info("Loading weights from model %s", snapshot_file)
     net, optimizer, scheduler, epoch, mean_iu = restore_snapshot(net, optimizer, scheduler, snapshot_file,
-            restore_optimizer_bool)
+                                                                 restore_optimizer_bool)
     return epoch, mean_iu
 
 
@@ -124,6 +128,7 @@ def forgiving_state_restore(net, loaded_dict):
     net_state_dict.update(new_loaded_dict)
     net.load_state_dict(net_state_dict)
     return net
+
 
 def forgiving_state_copy(target_net, source_net):
     """

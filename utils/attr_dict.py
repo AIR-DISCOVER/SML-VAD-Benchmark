@@ -27,6 +27,7 @@ Source License
 # --------------------------------------------------------
 """
 
+
 class AttrDict(dict):
 
     IMMUTABLE = '__immutable__'
@@ -50,10 +51,7 @@ class AttrDict(dict):
             else:
                 self[name] = value
         else:
-            raise AttributeError(
-                'Attempted to set "{}" to "{}", but AttrDict is immutable'.
-                format(name, value)
-            )
+            raise AttributeError('Attempted to set "{}" to "{}", but AttrDict is immutable'.format(name, value))
 
     def immutable(self, is_immutable):
         """Set immutability to is_immutable and recursively apply the setting

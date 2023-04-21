@@ -18,10 +18,12 @@ from tqdm import tqdm
 
 pbar = None
 
+
 class Point():
     """
     Point Class For X and Y Location
     """
+
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -58,7 +60,7 @@ def class_centroids_image(item, tile_size, num_classes, id2trainid):
     mask = np.array(Image.open(label_fn))
     if len(mask.shape) == 3:
         # Remove instance mask
-        mask = mask[:,:,0]
+        mask = mask[:, :, 0]
     image_size = mask.shape
     tile_locations = calc_tile_locations(tile_size, image_size)
 
@@ -80,7 +82,9 @@ def class_centroids_image(item, tile_size, num_classes, id2trainid):
     pbar.update(1)
     return centroids
 
+
 import scipy.misc as m
+
 
 def class_centroids_image_from_color(item, tile_size, num_classes, id2trainid):
     """
@@ -94,7 +98,7 @@ def class_centroids_image_from_color(item, tile_size, num_classes, id2trainid):
     image_fn, label_fn = item
     centroids = defaultdict(list)
     mask = m.imread(label_fn)
-    image_size = mask[:,:,0].shape
+    image_size = mask[:, :, 0].shape
     tile_locations = calc_tile_locations(tile_size, image_size)
 
     # mask = m.imread(label_fn)
@@ -123,7 +127,8 @@ def class_centroids_image_from_color(item, tile_size, num_classes, id2trainid):
             #     print(k, v, "num", np.count_nonzero(mask == np.array(k)))
             # break
             if v != 255 and v != -1:
-                mask_copy[(mask == np.array(k))[:,:,0] & (mask == np.array(k))[:,:,1] & (mask == np.array(k))[:,:,2]] = v
+                mask_copy[(mask == np.array(k))[:, :, 0] & (mask == np.array(k))[:, :, 1] &
+                          (mask == np.array(k))[:, :, 2]] = v
     mask = mask_copy
 
     # mask_copy = mask.copy()
@@ -144,6 +149,7 @@ def class_centroids_image_from_color(item, tile_size, num_classes, id2trainid):
     pbar.update(1)
     return centroids
 
+
 def pooled_class_centroids_all_from_color(items, num_classes, id2trainid, tile_size=1024):
     """
     Calculate class centroids for all classes for all images for all tiles.
@@ -156,10 +162,8 @@ def pooled_class_centroids_all_from_color(items, num_classes, id2trainid, tile_s
     pool = Pool(32)
     global pbar
     pbar = tqdm(total=len(items), desc='pooled centroid extraction')
-    class_centroids_item = partial(class_centroids_image_from_color,
-                                   num_classes=num_classes,
-                                   id2trainid=id2trainid,
-                                   tile_size=tile_size)
+    class_centroids_item = partial(
+        class_centroids_image_from_color, num_classes=num_classes, id2trainid=id2trainid, tile_size=tile_size)
 
     centroids = defaultdict(list)
     new_centroids = pool.map(class_centroids_item, items)
@@ -185,10 +189,8 @@ def pooled_class_centroids_all(items, num_classes, id2trainid, tile_size=1024):
     pool = Pool(80)
     global pbar
     pbar = tqdm(total=len(items), desc='pooled centroid extraction')
-    class_centroids_item = partial(class_centroids_image,
-                                   num_classes=num_classes,
-                                   id2trainid=id2trainid,
-                                   tile_size=tile_size)
+    class_centroids_item = partial(
+        class_centroids_image, num_classes=num_classes, id2trainid=id2trainid, tile_size=tile_size)
 
     centroids = defaultdict(list)
     new_centroids = pool.map(class_centroids_item, items)
@@ -213,9 +215,7 @@ def unpooled_class_centroids_all(items, num_classes, tile_size=1024):
     global pbar
     pbar = tqdm(total=len(items), desc='centroid extraction')
     for image, label in items:
-        new_centroids = class_centroids_image((image, label),
-                                              tile_size,
-                                              num_classes)
+        new_centroids = class_centroids_image((image, label), tile_size, num_classes)
         for class_id in new_centroids:
             centroids[class_id].extend(new_centroids[class_id])
 
@@ -227,8 +227,7 @@ def class_centroids_all_from_color(items, num_classes, id2trainid, tile_size=102
     intermediate function to call pooled_class_centroid
     """
 
-    pooled_centroids = pooled_class_centroids_all_from_color(items, num_classes,
-                                                  id2trainid, tile_size)
+    pooled_centroids = pooled_class_centroids_all_from_color(items, num_classes, id2trainid, tile_size)
     return pooled_centroids
 
 
@@ -237,8 +236,7 @@ def class_centroids_all(items, num_classes, id2trainid, tile_size=1024):
     intermediate function to call pooled_class_centroid
     """
 
-    pooled_centroids = pooled_class_centroids_all(items, num_classes,
-                                                  id2trainid, tile_size)
+    pooled_centroids = pooled_class_centroids_all(items, num_classes, id2trainid, tile_size)
     return pooled_centroids
 
 
@@ -280,7 +278,7 @@ def build_epoch(imgs, centroids, num_classes, class_uniform_pct):
 
     # now add uniform sampling
     for class_id in range(num_classes):
-        string_format = "cls %d len %d"% (class_id, len(centroids[class_id]))
+        string_format = "cls %d len %d" % (class_id, len(centroids[class_id]))
         logging.info(string_format)
     for class_id in range(num_classes):
         centroid_len = len(centroids[class_id])

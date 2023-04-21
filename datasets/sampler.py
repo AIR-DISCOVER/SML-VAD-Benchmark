@@ -33,12 +33,11 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-
-
 import math
 import torch
 from torch.distributed import get_world_size, get_rank
 from torch.utils.data import Sampler
+
 
 class DistributedSampler(Sampler):
     """Sampler that restricts data loading to a subset of the dataset.
@@ -84,7 +83,7 @@ class DistributedSampler(Sampler):
             indices = list(torch.randperm(len(self.dataset), generator=g))
         else:
             indices = list([x for x in range(len(self.dataset))])
-        
+
         # add extra samples to make it evenly divisible
         if self.total_size > len(indices):
             indices += indices[:(self.total_size - len(indices))]
