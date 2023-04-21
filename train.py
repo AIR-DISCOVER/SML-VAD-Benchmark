@@ -124,7 +124,7 @@ parser.add_argument('--ckpt', type=str, default='logs/ckpt',
                     help='Save Checkpoint Point')
 parser.add_argument('--tb_path', type=str, default='logs/tb',
                     help='Save Tensorboard Path')
-parser.add_argument('--syncbn', action='store_true', default=True,
+parser.add_argument('--syncbn', action='store_true', default=False,
                     help='Use Synchronized BN')
 parser.add_argument('--dump_augmentation_images', action='store_true', default=False,
                     help='Dump Augmentated Images for sanity check')
@@ -166,9 +166,14 @@ parser.add_argument('--smoothing_kernel_dilation', type=int, default=0,
                     help='kernel dilation rate of dilated smoothing')
 
 args = parser.parse_args()
+args.world_size = int(os.getenv('WORLD_SIZE', 1))
+args.local_rank = int(os.getenv('LOCAL_RANK', 0))
+port = str(20000 + (int(time.time()%1000))//10)
+args.dist_url = args.dist_url + port
+torch.cuda.set_device(args.local_rank)
 
 # Enable CUDNN Benchmarking optimization
-#torch.backends.cudnn.benchmark = True
+# torch.backends.cudnn.benchmark = True
 random_seed = cfg.RANDOM_SEED  #304
 print("RANDOM_SEED", random_seed)
 torch.manual_seed(random_seed)
@@ -179,28 +184,14 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(random_seed)
 random.seed(random_seed)
 
-args.world_size = 1
-
 # Test Mode run two epochs with a few iterations of training and val
 if args.test_mode:
     args.max_epoch = 2
 
-
-if 'WORLD_SIZE' in os.environ:
-    # args.apex = int(os.environ['WORLD_SIZE']) > 1
-    args.world_size = int(os.environ['WORLD_SIZE'])
-    print("Total world size: ", int(os.environ['WORLD_SIZE']))
-
-torch.cuda.set_device(args.local_rank)
-print('My Rank:', args.local_rank)
-# Initialize distributed communication
-args.dist_url = args.dist_url + str(8000 + (int(time.time()%1000))//10)
-
-torch.distributed.init_process_group(backend='nccl',
-                                     init_method=args.dist_url,
-                                     world_size=args.world_size,
-                                     rank=args.local_rank)
-
+print('init')
+if args.world_size > 1:
+    torch.distributed.init_process_group(backend='nccl')
+print('start')
 def main():
 
     """
@@ -218,8 +209,10 @@ def main():
 
     optim, scheduler = optimizer.get_optimizer(args, net)
 
-    net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
-    net = network.warp_network_in_dataparallel(net, args.local_rank)
+    if args.world_size > 1:
+        net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
+    if args.world_size > 1:
+        net = network.warp_network_in_dataparallel(net, args.local_rank)
     epoch = 0
     i = 0
 
@@ -310,7 +303,7 @@ def train(train_loader, net, optim, curr_epoch, writer, scheduler, max_iter):
 
             img_gt = None
 
-            input, seg_gt, ood_gt = input.cuda(), seg_gt.cuda(), ood_gt.cuda()
+            input, seg_gt, ood_gt, aux_gt = input.cuda(), seg_gt.cuda(), ood_gt.cuda(), aux_gt.cuda()
 
             optim.zero_grad()
 
@@ -320,7 +313,8 @@ def train(train_loader, net, optim, curr_epoch, writer, scheduler, max_iter):
             total_loss = main_loss + (0.4 * aux_loss)
 
             log_total_loss = total_loss.clone().detach_()
-            torch.distributed.all_reduce(log_total_loss, torch.distributed.ReduceOp.SUM)
+            if args.world_size > 1:
+                torch.distributed.all_reduce(log_total_loss, torch.distributed.ReduceOp.SUM)
             log_total_loss = log_total_loss / args.world_size
             train_total_loss.update(log_total_loss.item(), batch_pixel_size)
 
@@ -424,7 +418,8 @@ def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, 
         del main_out, val_idx, data
 
     iou_acc_tensor = torch.cuda.FloatTensor(iou_acc)
-    torch.distributed.all_reduce(iou_acc_tensor, op=torch.distributed.ReduceOp.SUM)
+    if args.world_size > 1:
+        torch.distributed.all_reduce(iou_acc_tensor, op=torch.distributed.ReduceOp.SUM)
     iou_acc = iou_acc_tensor.cpu().numpy()
 
 

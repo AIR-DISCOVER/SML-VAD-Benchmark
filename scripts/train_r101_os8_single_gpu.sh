@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Example on Cityscapes
-python -m torch.distributed.launch --nproc_per_node=2 train.py \
+python train.py \
    --dataset cityscapes \
    --val_dataset cityscapes \
    --arch network.deepv3.DeepR101V3PlusD_OS8 \
    --city_mode 'train' \
    --lr_schedule poly \
    --lr 0.01 \
-   --syncbn \
    --poly_exp 0.9 \
    --max_cu_epoch 10000 \
    --class_uniform_pct 0.5 \
