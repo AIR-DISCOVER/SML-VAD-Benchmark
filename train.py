@@ -214,38 +214,93 @@ def main():
     if args.world_size > 1:
         net = network.warp_network_in_dataparallel(net, args.local_rank)
     epoch = 0
-    i = 0
+    current_iter = 0
 
     if args.snapshot:
         epoch, mean_iu = optimizer.load_weights(net, optim, scheduler,
                             args.snapshot, args.restore_optimizer)
         if args.restore_optimizer is True:
             iter_per_epoch = len(train_loader)
-            i = iter_per_epoch * epoch
+            current_iter = iter_per_epoch * epoch
         else:
             epoch = 0
 
-    print("#### iteration", i)
+    print("#### iteration", current_iter)
     torch.cuda.empty_cache()
     # Main Loop
     # for epoch in range(args.start_epoch, args.max_epoch):
 
-    while i < args.max_iter:
+    while current_iter < args.max_iter:
         # Update EPOCH CTR
         cfg.immutable(False)
-        cfg.ITER = i
+        cfg.ITER = current_iter
         cfg.immutable(True)
+        max_iter = args.max_iter
 
-        i = train(train_loader, net, optim, epoch, writer, scheduler, args.max_iter)
+        # =================== TRAINING =====================
+
+        train_total_loss = AverageMeter()
+        time_meter = AverageMeter()
+
+        for inloader_iter, data in enumerate(train_loader):
+            net.train() 
+            if current_iter >= max_iter:
+                break
+            input, seg_gt, ood_gt, _, aux_gt = data
+
+            B, C, H, W = input.shape
+            batch_pixel_size = C * H * W
+
+
+            start_ts = time.time()
+
+            input, seg_gt, ood_gt, aux_gt = input.cuda(), seg_gt.cuda(), ood_gt.cuda(), aux_gt.cuda()
+            
+            optim.zero_grad()
+            outputs = net(input, seg_gts=seg_gt, ood_gts=ood_gt, aux_gts=aux_gt)
+            main_loss, aux_loss, anomaly_score = outputs
+            total_loss = main_loss + (0.4 * aux_loss)
+            total_loss.backward()
+            optim.step()
+            scheduler.step()
+
+
+            log_total_loss = total_loss.clone().detach_()
+            if args.world_size > 1:
+                torch.distributed.all_reduce(log_total_loss, torch.distributed.ReduceOp.SUM)
+            log_total_loss = log_total_loss / args.world_size
+            train_total_loss.update(log_total_loss.item(), batch_pixel_size)
+
+            time_meter.update(time.time() - start_ts)
+
+            del total_loss, log_total_loss
+
+            if args.local_rank == 0 and current_iter % 50 == 49:
+                msg = '[epoch {}], [iter {} / {} : {}], [total loss {:0.6f}], [seg loss {:0.6f}], [lr {:0.6f}], [time {:0.4f}]'.format(
+                    epoch, inloader_iter + 1, len(train_loader), current_iter, train_total_loss.avg,
+                    main_loss.item(), optim.param_groups[-1]['lr'],
+                    time_meter.avg / args.train_batch_size)
+
+                logging.info(msg)
+
+                # Log tensorboard metrics for each iteration of the training phase
+                writer.add_scalar('loss/train_loss', (train_total_loss.avg),
+                                current_iter)
+                writer.add_scalar('loss/main_loss', (main_loss.item()),
+                                current_iter)
+                train_total_loss.reset()
+                time_meter.reset()
+
+
+            if current_iter % args.val_interval == 0:
+                for dataset, val_loader in val_loaders.items():
+                    validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, current_iter)
+
+            current_iter += 1
+        # ==================================================
+
         train_loader.sampler.set_epoch(epoch + 1)
-        if i % args.val_interval == 0:
-            for dataset, val_loader in val_loaders.items():
-                validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, i)
-        else:
-            if args.local_rank == 0:
-                print("Saving pth file...")
-                evaluate_eval(args, net, optim, scheduler, None, None, [],
-                            writer, epoch, "None", None, i, save_pth=True)
+
 
         if args.class_uniform_pct:
             if epoch >= args.max_cu_epoch:
@@ -258,97 +313,11 @@ def main():
 
     # Validation after epochs
     for dataset, val_loader in val_loaders.items():
-        validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, i)
+        validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, current_iter)
 
     for dataset, val_loader in extra_val_loaders.items():
         print("Extra validating... This won't save pth file")
-        validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, i, save_pth=False)
-
-
-def train(train_loader, net, optim, curr_epoch, writer, scheduler, max_iter):
-    """
-    Runs the training loop per epoch
-    train_loader: Data loader for train
-    net: thet network
-    optimizer: optimizer
-    curr_epoch: current epoch
-    writer: tensorboard writer
-    return:
-    """
-    net.train()
-
-    train_total_loss = AverageMeter()
-    time_meter = AverageMeter()
-
-    curr_iter = curr_epoch * len(train_loader)
-
-    for i, data in enumerate(train_loader):
-        if curr_iter >= max_iter:
-            break
-        inputs, seg_gts, ood_gts, _, aux_gts = data
-
-        B, C, H, W = inputs.shape
-        num_domains = 1
-        inputs = [inputs]
-        seg_gts = [seg_gts]
-        ood_gts = [ood_gts]
-        aux_gts = [aux_gts]
-
-        batch_pixel_size = C * H * W
-
-        for di, ingredients in enumerate(zip(inputs, seg_gts, ood_gts, aux_gts)):
-            input, seg_gt, ood_gt, aux_gt = ingredients
-
-            start_ts = time.time()
-
-            img_gt = None
-
-            input, seg_gt, ood_gt, aux_gt = input.cuda(), seg_gt.cuda(), ood_gt.cuda(), aux_gt.cuda()
-
-            optim.zero_grad()
-
-            outputs_index = 0
-            outputs = net(input, seg_gts=seg_gt, ood_gts=ood_gt, aux_gts=aux_gt)
-            main_loss, aux_loss, anomaly_score = outputs
-            total_loss = main_loss + (0.4 * aux_loss)
-
-            log_total_loss = total_loss.clone().detach_()
-            if args.world_size > 1:
-                torch.distributed.all_reduce(log_total_loss, torch.distributed.ReduceOp.SUM)
-            log_total_loss = log_total_loss / args.world_size
-            train_total_loss.update(log_total_loss.item(), batch_pixel_size)
-
-            total_loss.backward()
-            optim.step()
-
-            time_meter.update(time.time() - start_ts)
-
-            del total_loss, log_total_loss
-
-            if args.local_rank == 0:
-                if i % 50 == 49:
-                    msg = '[epoch {}], [iter {} / {} : {}], [total loss {:0.6f}], [seg loss {:0.6f}], [lr {:0.6f}], [time {:0.4f}]'.format(
-                        curr_epoch, i + 1, len(train_loader), curr_iter, train_total_loss.avg,
-                        main_loss.item(), optim.param_groups[-1]['lr'],
-                        time_meter.avg / args.train_batch_size)
-
-                    logging.info(msg)
-
-                    # Log tensorboard metrics for each iteration of the training phase
-                    writer.add_scalar('loss/train_loss', (train_total_loss.avg),
-                                    curr_iter)
-                    writer.add_scalar('loss/main_loss', (main_loss.item()),
-                                    curr_iter)
-                    train_total_loss.reset()
-                    time_meter.reset()
-
-        curr_iter += 1
-        scheduler.step()
-
-        if i > 5 and args.test_mode:
-            return curr_iter
-
-    return curr_iter
+        validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, current_iter, save_pth=False)
 
 def validate(val_loader, dataset, net, criterion, optim, scheduler, curr_epoch, writer, curr_iter, save_pth=True):
     """
