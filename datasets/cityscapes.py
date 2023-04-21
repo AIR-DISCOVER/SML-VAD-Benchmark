@@ -239,6 +239,7 @@ class CityScapes(data.Dataset):
         else:
             self.cv_split = 0
         self.imgs, _ = make_dataset(quality, mode, self.maxSkip, cv_split=self.cv_split)
+        from IPython import embed; embed()
         if len(self.imgs) == 0:
             raise RuntimeError('Found 0 images, please check the data set')
 

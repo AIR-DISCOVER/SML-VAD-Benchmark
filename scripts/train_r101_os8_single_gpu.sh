@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Example on Cityscapes
 python train.py \
-   --dataset cityscapes \
-   --val_dataset cityscapes \
+   --dataset carla \
+   --val_dataset carla \
    --arch network.deepv3.DeepR101V3PlusD_OS8 \
    --city_mode 'train' \
    --lr_schedule poly \

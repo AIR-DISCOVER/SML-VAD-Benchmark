@@ -1,7 +1,7 @@
 """
 Dataset setup and loaders
 """
-from datasets import cityscapes
+from datasets import cityscapes, carla
 from datasets import nullloader
 
 from datasets import multi_loader
@@ -122,6 +122,10 @@ def create_extra_val_loader(args, dataset, val_input_transform, target_transform
                                         transform=val_input_transform,
                                         target_transform=target_transform,
                                         cv_split=args.cv)
+    elif dataset == 'carla':
+        val_set = carla.Carla('val', 0,
+                                transform=val_input_transform,
+                                target_transform=target_transform,)
     elif dataset == 'null_loader':
         val_set = nullloader.nullloader(args.crop_size)
     else:
@@ -210,6 +214,26 @@ def setup_loaders(args):
         train_sets.append(train_set)
         val_sets.append(val_set)
         val_dataset_names.append('cityscapes')
+
+    if 'carla' in args.dataset:
+        dataset = carla
+        train_joint_transform_list, train_joint_transform = get_train_joint_transform(args, dataset)
+        train_input_transform, val_input_transform = get_input_transforms(args, dataset)
+        target_transform, target_train_transform, target_aux_train_transform = get_target_transforms(args, dataset)
+
+        train_set = dataset.Carla("train", 
+            joint_transform=train_joint_transform_list,
+            transform=train_input_transform,
+            target_transform=target_train_transform,
+            target_aux_transform=target_aux_train_transform,)
+
+        val_set = dataset.Carla("val", 
+            transform=val_input_transform,
+            target_transform=target_transform,)
+        
+        train_sets.append(train_set)
+        val_sets.append(val_set)
+        val_dataset_names.append('carla')
 
     if 'null_loader' in args.dataset:
         train_set = nullloader.nullloader(args.crop_size)
