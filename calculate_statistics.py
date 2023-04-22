@@ -105,7 +105,7 @@ parser.add_argument('--exp', type=str, default='default', help='experiment direc
 parser.add_argument('--tb_tag', type=str, default='', help='add tag to tb dir')
 parser.add_argument('--ckpt', type=str, default='logs/ckpt', help='Save Checkpoint Point')
 parser.add_argument('--tb_path', type=str, default='logs/tb', help='Save Tensorboard Path')
-parser.add_argument('--syncbn', action='store_true', default=True, help='Use Synchronized BN')
+parser.add_argument('--syncbn', action='store_true', default=False, help='Use Synchronized BN')
 parser.add_argument(
     '--dump_augmentation_images', action='store_true', default=False, help='Dump Augmentated Images for sanity check')
 parser.add_argument(
@@ -166,9 +166,7 @@ print('My Rank:', args.local_rank)
 # Initialize distributed communication
 args.dist_url = args.dist_url + str(8000 + (int(time.time() % 1000)) // 10)
 
-torch.distributed.init_process_group(
-    backend='nccl', init_method=args.dist_url, world_size=args.world_size, rank=args.local_rank)
-
+torch.distributed.init_process_group(backend='nccl')
 
 def main():
     """
