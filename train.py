@@ -238,8 +238,8 @@ def main():
             scheduler.step()
 
             log_total_loss = total_loss.clone().detach_()
-            if args.world_size > 1:
-                torch.distributed.all_reduce(log_total_loss, torch.distributed.ReduceOp.SUM)
+            # if args.world_size > 1:
+            #     torch.distributed.all_reduce(log_total_loss, torch.distributed.ReduceOp.SUM)
             log_total_loss = log_total_loss / args.world_size
             train_total_loss.update(log_total_loss.item(), batch_pixel_size)
 
@@ -247,7 +247,7 @@ def main():
 
             del total_loss, log_total_loss
 
-            if args.local_rank == 0 and current_iter % 50 == 49:
+            if args.local_rank == 0 and current_iter % 10 == 9:
                 msg = '[epoch {}], [iter {} / {} : {}], [total loss {:0.6f}], [seg loss {:0.6f}], [lr {:0.6f}], [time {:0.4f}]'.format(
                     epoch, inloader_iter + 1, len(train_loader), current_iter, train_total_loss.avg, main_loss.item(),
                     optim.param_groups[-1]['lr'], time_meter.avg / args.train_batch_size)

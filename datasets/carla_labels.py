@@ -81,7 +81,7 @@ labels = [
     Label(  'rail track'           , 10 ,      255 ,       26 , 'flat'            , 1       , False        , True         , True  , True        , (230,150,140), (230,150,140)  ),
     Label(  'building'             , 11 ,        2 ,        2 , 'construction'    , 2       , False        , False        , True  , True        , ( 70, 70, 70), ( 70, 70, 70)  ),
     Label(  'wall'                 , 12 ,        3 ,        3 , 'construction'    , 2       , False        , False        , True  , True        , (102,102,156), (102,102,156)  ),
-    Label(  'fence'                , 13 ,        4 ,        4 , 'construction'    , 2       , False        , False        , True  , True        , (190,153,153), (100, 40, 0)  ),
+    Label(  'fence'                , 13 ,        4 ,        4 , 'construction'    , 2       , False        , False        , True  , True        , (190,153,153), (190,153,153)  ),
     Label(  'guard rail'           , 14 ,      255 ,       27 , 'construction'    , 2       , False        , True         , True  , True        , (180,165,180), (180,165,180)  ),
     Label(  'bridge'               , 15 ,      255 ,       25 , 'construction'    , 2       , False        , True         , True  , True        , (150,100,100), (150,100,100)  ),
     Label(  'tunnel'               , 16 ,      255 ,      255 , 'construction'    , 2       , False        , True         , False , True        , (150,120, 90), (150,120, 90)  ),
@@ -113,10 +113,12 @@ carla_color2id = {i.carlaColor: i.carlaId for i in labels if i.inCarla}
 carla_color2trainId = {i.carlaColor: i.trainId for i in labels}
 carla_color2trainId[(  0,  0,142)] = 13
 carla_color2trainId[(153,153,153)] = 5
+carla_color2trainId[( 55, 90, 80)] = 9
 
 carla_color2oodId = {i.carlaColor: 0 if i.trainId != 255 else 255 for i in labels}
 carla_color2oodId[(  0,  0,142)] = 0
 carla_color2oodId[(153,153,153)] = 0
+carla_color2oodId[( 55, 90, 80)] = 0
 
 import numpy as np
 palette = {v: k for k, v in carla_color2trainId.items()}

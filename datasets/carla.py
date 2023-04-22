@@ -128,4 +128,15 @@ class Carla(data.Dataset):
 
 if __name__ == "__main__":
     dataset = Carla("train", dump_images=True)
-    image = dataset.__getitem__(0)
+    print(len(dataset))
+    from torch.utils.data import DataLoader
+    dataloader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=16)
+    bincount = np.zeros(256, dtype=np.int64)
+    from tqdm import tqdm
+    for i in tqdm(dataloader):
+        seg = i
+        seg = np.bincount(np.array(seg).flatten())
+        bincount += seg
+        print(bincount[:19])
+        print(bincount[-1])
+    from IPython import embed; embed()
