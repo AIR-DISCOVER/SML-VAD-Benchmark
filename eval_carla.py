@@ -196,14 +196,14 @@ if __name__ == '__main__':
             main_out, anomaly_score = net(image)
         del main_out
 
-        os.makedirs(os.path.dirname(image_path.replace('rgb_v', 'anomaly_score_v')), exist_ok=True)
-        os.makedirs(os.path.dirname(image_path.replace('rgb_v', 'anomaly_vis_v')), exist_ok=True)
+        os.makedirs(os.path.dirname(image_path.replace('rgb_v', 'anomaly_score_v/SML')), exist_ok=True)
+        os.makedirs(os.path.dirname(image_path.replace('rgb_v', 'anomaly_vis_v/SML')), exist_ok=True)
 
         anomaly_score = anomaly_score.cpu().numpy()[0]
-        np.save(image_path.replace('rgb_v', 'anomaly_score_v').replace('.png', '.npy'), anomaly_score)
+        np.save(image_path.replace('rgb_v', 'anomaly_score_v/SML').replace('.png', '.npy'), anomaly_score)
 
         anomaly_score = -(anomaly_score - anomaly_score.min()) / (anomaly_score.max() - anomaly_score.min()) * 255
-        Image.fromarray(anomaly_score.astype(np.uint8), mode='L').save(image_path.replace('rgb_v', 'anomaly_vis_v'))
+        Image.fromarray(anomaly_score.astype(np.uint8), mode='L').save(image_path.replace('rgb_v', 'anomaly_vis_v/SML'))
         # from IPython import embed; embed()
         # anomaly_score_list.append(anomaly_score.cpu().numpy())
 

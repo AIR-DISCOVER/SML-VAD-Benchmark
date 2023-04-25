@@ -8,7 +8,7 @@ python -m torch.distributed.launch --nproc_per_node=1 --master_port 44245 calcul
     --lr_schedule poly \
     --lr 0.01 \
     --poly_exp 0.9 \
-    --snapshot ./pretrained/best_carla_epoch_2_mean-iu_0.68328.pth \
+    --snapshot ./pretrained/best_carla_epoch_3_mean-iu_0.69455.pth \
     --crop_size 768 \
     --scale_min 0.5 \
     --scale_max 2.0 \
