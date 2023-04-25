@@ -162,10 +162,8 @@ random.seed(random_seed)
 if args.test_mode:
     args.max_epoch = 2
 
-print('init')
 if args.world_size > 1:
-    torch.distributed.init_process_group(backend='nccl')
-print('start')
+    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=args.world_size)
 
 
 def main():
@@ -199,7 +197,7 @@ def main():
         else:
             epoch = 0
 
-    print("#### iteration", current_iter)
+    logging.info("#### iteration " + str(current_iter))
     torch.cuda.empty_cache()
     # Main Loop
     # for epoch in range(args.start_epoch, args.max_epoch):
@@ -228,7 +226,6 @@ def main():
             start_ts = time.time()
 
             input, seg_gt, ood_gt, aux_gt = input.cuda(), seg_gt.cuda(), ood_gt.cuda(), aux_gt.cuda()
-
             optim.zero_grad()
             outputs = net(input, seg_gts=seg_gt, ood_gts=ood_gt, aux_gts=aux_gt)
             main_loss, aux_loss, anomaly_score = outputs
@@ -247,7 +244,7 @@ def main():
 
             del total_loss, log_total_loss
 
-            if args.local_rank == 0 and current_iter % 10 == 9:
+            if args.local_rank == 0 and current_iter > 0:
                 msg = '[epoch {}], [iter {} / {} : {}], [total loss {:0.6f}], [seg loss {:0.6f}], [lr {:0.6f}], [time {:0.4f}]'.format(
                     epoch, inloader_iter + 1, len(train_loader), current_iter, train_total_loss.avg, main_loss.item(),
                     optim.param_groups[-1]['lr'], time_meter.avg / args.train_batch_size)
@@ -283,7 +280,7 @@ def main():
         validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, current_iter)
 
     for dataset, val_loader in extra_val_loaders.items():
-        print("Extra validating... This won't save pth file")
+        logging.info("Extra validating... This won't save pth file")
         validate(val_loader, dataset, net, criterion_val, optim, scheduler, epoch, writer, current_iter, save_pth=False)
 
 

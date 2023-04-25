@@ -80,16 +80,12 @@ def save_log(prefix, output_dir, date_str, rank=0):
     date_fmt = '%m-%d %H:%M:%S'
     filename = os.path.join(output_dir, prefix + '_' + date_str + '_rank_' + str(rank) + '.log')
     print("Logging :", filename)
-    logging.basicConfig(level=logging.INFO, format=fmt, datefmt=date_fmt, filename=filename, filemode='w')
     console = logging.StreamHandler()
     console.setLevel(logging.INFO)
     formatter = logging.Formatter(fmt=fmt, datefmt=date_fmt)
     console.setFormatter(formatter)
-    if rank == 0:
-        logging.getLogger('').addHandler(console)
-    else:
-        fh = logging.FileHandler(filename)
-        logging.getLogger('').addHandler(fh)
+    fh = logging.FileHandler(filename)
+    logging.basicConfig(level=logging.INFO, format=fmt, datefmt=date_fmt, force=True, handlers=[console, fh])
 
 
 def prep_experiment(args, parser):
@@ -297,7 +293,7 @@ def print_evaluate_results(hist, iu, dataset_name=None, dataset=None):
     for idx, i in enumerate(iu):
         if idx > 18:
             continue
-        print(i)
+        print(i, end=' ')
         modified_iu += i
 
         # Format all of the strings:
@@ -312,7 +308,7 @@ def print_evaluate_results(hist, iu, dataset_name=None, dataset=None):
         recall = '{:5.1f}'.format(iu_true_positive[idx] / (iu_true_positive[idx] + iu_false_negative[idx]))
         logging.info('{}    {}   {}  {}     {}  {}   {}   {}'.format(idx_string, class_name, iu_string, precision,
                                                                      recall, tp, fp, fn))
-    print(f'Final mIoU: {modified_iu / 19.}')
+    logging.info(f'\nFinal mIoU: {modified_iu / 19.}')
 
 
 class AverageMeter(object):

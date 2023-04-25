@@ -119,6 +119,8 @@ carla_color2oodId = {i.carlaColor: 0 if i.trainId != 255 else 255 for i in label
 carla_color2oodId[(  0,  0,142)] = 0
 carla_color2oodId[(153,153,153)] = 0
 carla_color2oodId[( 55, 90, 80)] = 0
+carla_color2oodId[(235, 38, 57)] = 1
+
 
 import numpy as np
 palette = {v: k for k, v in carla_color2trainId.items()}

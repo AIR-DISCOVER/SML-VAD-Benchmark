@@ -22,6 +22,8 @@ from PIL import Image
 from sklearn.metrics import roc_auc_score, roc_curve, auc, precision_recall_curve, average_precision_score
 import torchvision.transforms as standard_transforms
 
+from datasets.carla_labels import carla_color2oodId
+
 dirname = os.path.dirname(__file__)
 pretrained_model_path = os.path.join(dirname, 'pretrained/r101_os8_base_cty.pth')
 
@@ -112,7 +114,7 @@ print('My Rank:', args.local_rank)
 args.dist_url = args.dist_url + str(8000 + (int(time.time() % 1000)) // 10)
 
 torch.distributed.init_process_group(
-    backend='nccl', init_method=args.dist_url, world_size=args.world_size, rank=args.local_rank)
+    backend='nccl')
 
 
 def get_net():
@@ -153,33 +155,40 @@ def preprocess_image(x, mean_std):
     if len(x.shape) == 3:
         x = x.unsqueeze(0)
     return x
-
-
+# 235 38 57
+from glob import glob
 if __name__ == '__main__':
     net = get_net()
-
+    # mean_std = ([0.4731, 0.4955, 0.5078], [0.2753, 0.2715, 0.2758])
     mean_std = ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
     ood_data_root = args.ood_dataset_path
-    image_root_path = os.path.join(ood_data_root, 'leftImg8bit_trainvaltest/leftImg8bit/val')
-    mask_root_path = os.path.join(ood_data_root, 'gtFine_trainvaltest/gtFine/val')
+    # image_root_path = os.path.join(ood_data_root, 'leftImg8bit_trainvaltest/leftImg8bit/val')
+    # mask_root_path = os.path.join(ood_data_root, 'gtFine_trainvaltest/gtFine/val')
 
-    if not os.path.exists(image_root_path):
-        raise ValueError(f"Dataset directory {image_root_path} doesn't exist!")
+    # if not os.path.exists(image_root_path):
+        # raise ValueError(f"Dataset directory {image_root_path} doesn't exist!")
 
     anomaly_score_list = []
     ood_gts_list = []
 
-    for image_file in tqdm(os.listdir(image_root_path)):
-        mask_file = image_file.replace('leftImg8bit.png', 'gtFine_labelIds.png')
-        image_path = os.path.join(image_root_path, image_file)
-        mask_path = os.path.join(mask_root_path, mask_file)
+    image_file_list = glob(os.path.join(ood_data_root, '**/rgb_v/*.png'), recursive=True)
+    mask_file_list = [i.replace('rgb_v', 'mask_v') for i in image_file_list]
+
+    for image_path, mask_path in zip(tqdm(image_file_list), mask_file_list):
+
 
         # 3 x H x W
         image = np.array(Image.open(image_path).convert('RGB')).astype('uint8')
-
         mask = Image.open(mask_path)
         ood_gts = np.array(mask)
+        oodid_mask = np.zeros(ood_gts.shape[:2], dtype='uint8')
+
+        for k, v in carla_color2oodId.items():
+            oodid_mask[(ood_gts == k).all(-1)] = v
+
+        ood_gts = oodid_mask
+
         ood_gts_list.append(np.expand_dims(ood_gts, 0))
 
         with torch.no_grad():
@@ -187,33 +196,41 @@ if __name__ == '__main__':
             main_out, anomaly_score = net(image)
         del main_out
 
-        from IPython import embed; embed()
-        anomaly_score_list.append(anomaly_score.cpu().numpy())
+        os.makedirs(os.path.dirname(image_path.replace('rgb_v', 'anomaly_score_v')), exist_ok=True)
+        os.makedirs(os.path.dirname(image_path.replace('rgb_v', 'anomaly_vis_v')), exist_ok=True)
 
-    ood_gts = np.array(ood_gts_list)
-    anomaly_scores = np.array(anomaly_score_list)
+        anomaly_score = anomaly_score.cpu().numpy()[0]
+        np.save(image_path.replace('rgb_v', 'anomaly_score_v').replace('.png', '.npy'), anomaly_score)
 
-    # drop void pixels
-    ood_mask = (ood_gts == 1)
-    ind_mask = (ood_gts == 0)
+        anomaly_score = -(anomaly_score - anomaly_score.min()) / (anomaly_score.max() - anomaly_score.min()) * 255
+        Image.fromarray(anomaly_score.astype(np.uint8), mode='L').save(image_path.replace('rgb_v', 'anomaly_vis_v'))
+        # from IPython import embed; embed()
+        # anomaly_score_list.append(anomaly_score.cpu().numpy())
 
-    ood_out = -1 * anomaly_scores[ood_mask]
-    ind_out = -1 * anomaly_scores[ind_mask]
+    # ood_gts = np.array(ood_gts_list)
+    # anomaly_scores = np.array(anomaly_score_list)
 
-    ood_label = np.ones(len(ood_out))
-    ind_label = np.zeros(len(ind_out))
+    # # drop void pixels
+    # ood_mask = (ood_gts == 1)
+    # ind_mask = (ood_gts == 0)
 
-    val_out = np.concatenate((ind_out, ood_out))
-    val_label = np.concatenate((ind_label, ood_label))
+    # ood_out = -1 * anomaly_scores[ood_mask]
+    # ind_out = -1 * anomaly_scores[ind_mask]
 
-    print('Measuring metrics...')
+    # ood_label = np.ones(len(ood_out))
+    # ind_label = np.zeros(len(ind_out))
 
-    fpr, tpr, _ = roc_curve(val_label, val_out)
+    # val_out = np.concatenate((ind_out, ood_out))
+    # val_label = np.concatenate((ind_label, ood_label))
 
-    roc_auc = auc(fpr, tpr)
-    precision, recall, _ = precision_recall_curve(val_label, val_out)
-    prc_auc = average_precision_score(val_label, val_out)
-    fpr = fpr_at_95_tpr(val_out, val_label)
-    print(f'AUROC score: {roc_auc}')
-    print(f'AUPRC score: {prc_auc}')
-    print(f'FPR@TPR95: {fpr}')
+    # print('Measuring metrics...')
+
+    # fpr, tpr, _ = roc_curve(val_label, val_out)
+
+    # roc_auc = auc(fpr, tpr)
+    # precision, recall, _ = precision_recall_curve(val_label, val_out)
+    # prc_auc = average_precision_score(val_label, val_out)
+    # fpr = fpr_at_95_tpr(val_out, val_label)
+    # print(f'AUROC score: {roc_auc}')
+    # print(f'AUPRC score: {prc_auc}')
+    # print(f'FPR@TPR95: {fpr}')

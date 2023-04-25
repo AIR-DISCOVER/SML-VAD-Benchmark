@@ -154,18 +154,18 @@ def setup_loaders(args):
     return:  training data loader, validation data loader loader,  train_set
     """
 
-    args.train_batch_size = args.bs_mult * args.ngpu
+    args.train_batch_size = args.bs_mult
     if args.bs_mult_val > 0:
-        args.val_batch_size = args.bs_mult_val * args.ngpu
+        args.val_batch_size = args.bs_mult_val
     else:
-        args.val_batch_size = args.bs_mult * args.ngpu
+        args.val_batch_size = args.bs_mult
 
     # Readjust batch size to mini-batch size for syncbn
     if args.syncbn:
         args.train_batch_size = args.bs_mult
         args.val_batch_size = args.bs_mult_val
 
-    args.num_workers = 12  #1 * args.ngpu
+    args.num_workers = 4  #1 * args.ngpu
     if args.test_mode:
         args.num_workers = 1
 

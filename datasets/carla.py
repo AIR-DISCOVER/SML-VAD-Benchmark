@@ -10,7 +10,7 @@ from datasets.carla_labels import carla_color2trainId, carla_color2oodId, palett
 
 # from config import cfg
 # root = cfg.DATASET.CARLA_DIR
-root = "/home/tb5zhh/workspace/2023/SML/SML/data/new-carla/v3"
+root = "/data21/tb5zhh/datasets/new-carla/v3"
 num_classes = 19
 ignore_label = 255
 
@@ -39,7 +39,7 @@ def colorize_mask(mask):
 def make_dataset(mode):
     # mode: train/val
     ret_list = []
-    for i in sorted(glob(osp.join(root, mode, "**/rgb_v/*.png")), key=lambda i: file_id(i)):
+    for i in sorted(glob(osp.join(root, mode, "**/rgb_v/*.png"), recursive=True), key=lambda i: file_id(i)):
         ret_list.append((i, i.replace("rgb_v", "mask_v")))
     return ret_list
 
@@ -61,6 +61,7 @@ class Carla(data.Dataset):
         self.dump_images = dump_images
 
         self.imgs = make_dataset(mode)
+        print(f"Found {len(self.imgs)} {mode} images")
         if len(self.imgs) == 0:
             raise RuntimeError('Found 0 images, please check the data set')
         self.mean_std = ([0.4731, 0.4955, 0.5078], [0.2753, 0.2715, 0.2758])
