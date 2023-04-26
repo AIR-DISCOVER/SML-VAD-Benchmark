@@ -14,14 +14,14 @@ root = "/data21/tb5zhh/datasets/new-carla/v3"
 num_classes = 19
 ignore_label = 255
 
-
+import re
 def file_id(filepath: str):
+    # /data/tb5zhh/workspace/SML/SML/data/new-carla/v3/train/seq00-22/enhanced_rgb_v/cityscapes/reg-0.3-clip-1000/1.png
     # example input: /home/tb5zhh/workspace/2023/SML/SML/data/new-carla/v3/train/seq00-1/rgb_v/1.png
     # example output:seq00-001-001
-    return filepath.split("/")[-3].split(
-        "-"
-    )[0] + "-" + f'{int(filepath.split("/")[-3].split("-")[1]):03d}' + "-" + f'{int(filepath.split("/")[-1][:-4]):03d}'
-
+    res = re.findall('seq(\d+)-(\d+).+(\d+)\.png', filepath)
+    res = '-'.join([f"{int(i):03d}" for i in res[0]])
+    return res
 
 def colorize_mask(mask):
     """
@@ -39,7 +39,8 @@ def colorize_mask(mask):
 def make_dataset(mode, variant=None):
     # mode: train/val
     ret_list = []
-    mid = 'rgb_v' if mode == 'train' else variant
+    mid = 'rgb_v' if variant is None else variant
+    print(osp.join(root, mode, f"**/{mid}/*.png"))
     for i in sorted(glob(osp.join(root, mode, f"**/{mid}/*.png"), recursive=True), key=lambda i: file_id(i)):
         ret_list.append((i, i.replace(mid, "mask_v")))
     return ret_list
