@@ -3,6 +3,7 @@
 python -u -m torch.distributed.launch --nproc_per_node=6 --master_port 49494 train.py \
    --dataset carla \
    --val_dataset carla \
+   --variant cityscapes/reg-0.3-clip-1000 \
    --arch network.deepv3.DeepR101V3PlusD_OS8 \
    --city_mode 'train' \
    --lr_schedule poly \
@@ -20,6 +21,6 @@ python -u -m torch.distributed.launch --nproc_per_node=6 --master_port 49494 tra
    --gblur \
    --color_aug 0.5 \
    --date 0000 \
-   --exp r101_os8_base_60K \
+   --exp r101_os8_base_60K_cs_enhanced \
    --ckpt ./logs/ \
    --tb_path ./logs/

@@ -31,6 +31,7 @@ parser.add_argument(
     help='Network architecture. We have DeepSRNX50V3PlusD (backbone: ResNeXt50) \
                     and deepWV3Plus (backbone: WideResNet38).')
 parser.add_argument('--dataset', nargs='*', type=str, default=['cityscapes'], help='a list of datasets; cityscapes')
+parser.add_argument('--variant', type=str, default=None, help='Variant of Carla dataset')
 parser.add_argument(
     '--image_uniform_sampling',
     action='store_true',

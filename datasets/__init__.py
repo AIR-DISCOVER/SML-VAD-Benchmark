@@ -227,6 +227,7 @@ def setup_loaders(args):
 
         train_set = dataset.Carla(
             "train",
+            variant=args.variant,
             joint_transform=train_joint_transform_list,
             transform=train_input_transform,
             target_transform=target_train_transform,
@@ -235,6 +236,7 @@ def setup_loaders(args):
 
         val_set = dataset.Carla(
             "val",
+            variant=args.variant,
             transform=val_input_transform,
             target_transform=target_transform,
         )

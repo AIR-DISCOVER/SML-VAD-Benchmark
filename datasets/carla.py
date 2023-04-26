@@ -36,11 +36,12 @@ def colorize_mask(mask):
     return Image.fromarray(new)
 
 
-def make_dataset(mode):
+def make_dataset(mode, variant=None):
     # mode: train/val
     ret_list = []
-    for i in sorted(glob(osp.join(root, mode, "**/rgb_v/*.png"), recursive=True), key=lambda i: file_id(i)):
-        ret_list.append((i, i.replace("rgb_v", "mask_v")))
+    mid = 'rgb_v' if mode == 'train' else variant
+    for i in sorted(glob(osp.join(root, mode, f"**/{mid}/*.png"), recursive=True), key=lambda i: file_id(i)):
+        ret_list.append((i, i.replace(mid, "mask_v")))
     return ret_list
 
 
@@ -48,19 +49,21 @@ class Carla(data.Dataset):
 
     def __init__(self,
                  mode,
+                 variant,
                  joint_transform=None,
                  transform=None,
                  target_transform=None,
                  target_aux_transform=None,
                  dump_images=False):
         self.mode = mode
+        self.variant = variant
         self.joint_transform = joint_transform
         self.transform = transform
         self.target_transform = target_transform
         self.target_aux_transform = target_aux_transform
         self.dump_images = dump_images
 
-        self.imgs = make_dataset(mode)
+        self.imgs = make_dataset(mode, variant)
         print(f"Found {len(self.imgs)} {mode} images")
         if len(self.imgs) == 0:
             raise RuntimeError('Found 0 images, please check the data set')
