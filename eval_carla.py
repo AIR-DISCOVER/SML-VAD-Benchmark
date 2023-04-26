@@ -7,7 +7,7 @@ import argparse
 import os
 import time
 from glob import glob
-
+from torch.utils.data import Dataset, DataLoader
 import network
 import numpy as np
 import optimizer
@@ -141,6 +141,13 @@ def get_net():
 
     return net
 
+def vis(ood_gts):
+    demo = np.zeros((*ood_gts.shape, 3), dtype=np.uint8)
+    demo[ood_gts == 0] = (0, 255, 0)
+    demo[ood_gts == 1] = (255, 0, 0)
+    demo[ood_gts == 255] = (255, 255, 255)
+    return demo
+
 
 def preprocess_image(x, mean_std):
     x = Image.fromarray(x)
@@ -153,6 +160,33 @@ def preprocess_image(x, mean_std):
         x = x.unsqueeze(0)
     return x
 
+class EasyDataset(Dataset):
+    mean_std = ([0.4731, 0.4955, 0.5078], [0.2753, 0.2715, 0.2758])
+
+    def __init__(self, file_list, mask_list):
+        self.file_list = file_list
+        self.mask_list = mask_list
+        assert len(self.file_list) == len(self.mask_list)
+
+    def __getitem__(self, idx):
+        image_path = self.file_list[idx]
+        mask_path = self.mask_list[idx]
+
+        image = np.array(Image.open(image_path).convert('RGB')).astype('uint8')
+        image = standard_transforms.ToTensor()(image)
+        image = standard_transforms.Normalize(*self.mean_std)(image)
+
+        mask = Image.open(mask_path)
+        ood_gts = np.array(mask)
+        oodid_mask = np.zeros(ood_gts.shape[:2], dtype='uint8')
+        for k, v in carla_color2oodId.items():
+            oodid_mask[(ood_gts == k).all(-1)] = v
+        ood_gts = oodid_mask
+
+        return image, ood_gts
+    
+    def __len__(self):
+        return len(self.file_list)
 
 if __name__ == '__main__':
     net = get_net()
@@ -161,31 +195,31 @@ if __name__ == '__main__':
     ood_data_root = args.ood_dataset_path
     glob_path = os.path.join(ood_data_root, '**/rgb_v/*.png')
     image_file_list = glob(glob_path, recursive=True)
+
+    # /data/tb5zhh/workspace/SML/SML/data/anomaly_dataset/v5_release/train/seq05-1/rgb_v/60.png
+    sort_key = lambda x: f"{int(x.split('/')[-3].split('-')[0][3:]):03d}" + f"{int(x.split('/')[-3].split('-')[1]):03d}" + f"{int(os.path.basename(x)[:-4]):05d}"
+    image_file_list = sorted(image_file_list, key=sort_key)[::20]
+
     mask_file_list = [i.replace('rgb_v', 'mask_v') for i in image_file_list]
+
+    dataset = EasyDataset(image_file_list, mask_file_list)
+    dataloader = DataLoader(dataset, batch_size=args.bs_mult, shuffle=False, num_workers=8, pin_memory=True, drop_last=False)
 
     anomaly_score_list = []
     ood_gts_list = []
 
-    for image_path, mask_path in zip(tqdm(image_file_list), mask_file_list):
+    with torch.no_grad():
+        for image_batch, ood_gts_batch in tqdm(dataloader):
+            ood_gts_list.append(ood_gts_batch)
+            image_batch = image_batch.cuda()
+            
+            main_out, anomaly_score = net(image_batch)
+            anomaly_score_list.append(anomaly_score.cpu().numpy())
 
-        image = np.array(Image.open(image_path).convert('RGB')).astype('uint8')
-        mask = Image.open(mask_path)
-        ood_gts = np.array(mask)
-        oodid_mask = np.zeros(ood_gts.shape[:2], dtype='uint8')
-        for k, v in carla_color2oodId.items():
-            oodid_mask[(ood_gts == k).all(-1)] = v
-        ood_gts = oodid_mask
-        ood_gts_list.append(np.expand_dims(ood_gts, 0))
+    del main_out, anomaly_score, image_batch
 
-        with torch.no_grad():
-            image = preprocess_image(image, mean_std)
-            main_out, anomaly_score = net(image)
-        del main_out
-
-        anomaly_score_list.append(anomaly_score.cpu().numpy())
-
-    ood_gts = np.array(ood_gts_list)
-    anomaly_scores = np.array(anomaly_score_list)
+    ood_gts = np.concatenate(ood_gts_list, axis=0)
+    anomaly_scores = np.concatenate(anomaly_score_list, axis=0)
 
     # drop void pixels
     ood_mask = (ood_gts == 1)
