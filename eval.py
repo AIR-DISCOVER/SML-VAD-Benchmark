@@ -1,26 +1,26 @@
 """
 Evaluation Scripts
 """
-from __future__ import absolute_import
-from __future__ import division
-from collections import namedtuple, OrderedDict
-from network import mynn
+from __future__ import absolute_import, division
+
 import argparse
 import logging
 import os
-import torch
 import time
-import numpy as np
+from collections import OrderedDict, namedtuple
 
-from config import cfg, assert_and_infer_cfg
 import network
+import numpy as np
 import optimizer
-from ood_metrics import fpr_at_95_tpr
-from tqdm import tqdm
-
-from PIL import Image
-from sklearn.metrics import roc_auc_score, roc_curve, auc, precision_recall_curve, average_precision_score
+import torch
 import torchvision.transforms as standard_transforms
+from config import assert_and_infer_cfg, cfg
+from network import mynn
+from ood_metrics import fpr_at_95_tpr
+from PIL import Image
+from sklearn.metrics import (auc, average_precision_score,
+                             precision_recall_curve, roc_auc_score, roc_curve)
+from tqdm import tqdm
 
 dirname = os.path.dirname(__file__)
 pretrained_model_path = os.path.join(dirname, 'pretrained/r101_os8_base_cty.pth')
@@ -187,7 +187,6 @@ if __name__ == '__main__':
             main_out, anomaly_score = net(image)
         del main_out
 
-        from IPython import embed; embed()
         anomaly_score_list.append(anomaly_score.cpu().numpy())
 
     ood_gts = np.array(ood_gts_list)
