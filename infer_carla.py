@@ -4,12 +4,10 @@ Evaluation Scripts
 from __future__ import absolute_import, division
 
 import argparse
-import logging
 import os
 import time
-from collections import OrderedDict, namedtuple
 from glob import glob
-
+from torch.utils.data import Dataset, DataLoader
 import network
 import numpy as np
 import optimizer
@@ -17,7 +15,6 @@ import torch
 import torchvision.transforms as standard_transforms
 from config import assert_and_infer_cfg, cfg
 from datasets.carla_labels import carla_color2oodId
-from network import mynn
 from ood_metrics import fpr_at_95_tpr
 from PIL import Image
 from sklearn.metrics import (auc, average_precision_score,
@@ -154,6 +151,33 @@ def preprocess_image(x, mean_std):
         x = x.unsqueeze(0)
     return x
 
+class EasyDataset(Dataset):
+    mean_std = ([0.4731, 0.4955, 0.5078], [0.2753, 0.2715, 0.2758])
+
+    def __init__(self, file_list, mask_list):
+        self.file_list = file_list
+        self.mask_list = mask_list
+        assert len(self.file_list) == len(self.mask_list)
+
+    def __getitem__(self, idx):
+        image_path = self.file_list[idx]
+        mask_path = self.mask_list[idx]
+
+        image = np.array(Image.open(image_path).convert('RGB')).astype('uint8')
+        image = standard_transforms.ToTensor()(image)
+        image = standard_transforms.Normalize(*self.mean_std)(image)
+
+        mask = Image.open(mask_path)
+        ood_gts = np.array(mask)
+        oodid_mask = np.zeros(ood_gts.shape[:2], dtype='uint8')
+        for k, v in carla_color2oodId.items():
+            oodid_mask[(ood_gts == k).all(-1)] = v
+        ood_gts = oodid_mask
+
+        return image, ood_gts, image_path
+    
+    def __len__(self):
+        return len(self.file_list)
 
 if __name__ == '__main__':
     net = get_net()
@@ -162,22 +186,31 @@ if __name__ == '__main__':
     ood_data_root = args.ood_dataset_path
     glob_path = os.path.join(ood_data_root, '**/rgb_v/*.png')
     image_file_list = glob(glob_path, recursive=True)
+
+    # /data/tb5zhh/workspace/SML/SML/data/anomaly_dataset/v5_release/train/seq05-1/rgb_v/60.png
+    sort_key = lambda x: f"{int(x.split('/')[-3].split('-')[0][3:]):03d}" + f"{int(x.split('/')[-3].split('-')[1]):03d}" + f"{int(os.path.basename(x)[:-4]):05d}"
+    image_file_list = sorted(image_file_list, key=sort_key)[::20]
+
     mask_file_list = [i.replace('rgb_v', 'mask_v') for i in image_file_list]
 
-    for image_path, mask_path in zip(tqdm(image_file_list), mask_file_list):
+    dataset = EasyDataset(image_file_list, mask_file_list)
+    dataloader = DataLoader(dataset, batch_size=args.bs_mult, shuffle=False, num_workers=8, pin_memory=True, drop_last=False)
 
-        image = np.array(Image.open(image_path).convert('RGB')).astype('uint8')
-        with torch.no_grad():
-            image = preprocess_image(image, mean_std)
-            main_out, anomaly_score = net(image)
-        del main_out
 
-        os.makedirs(os.path.dirname(image_path.replace('rgb_v', 'anomaly_score_v/SML')), exist_ok=True)
-        os.makedirs(os.path.dirname(image_path.replace('rgb_v', 'anomaly_vis_v/SML')), exist_ok=True)
+    with torch.no_grad():
+        for image_batch, ood_gts_batch, image_paths in tqdm(dataloader, position=0, leave=True):
 
-        anomaly_score = anomaly_score.cpu().numpy()[0]
-        np.save(image_path.replace('rgb_v', 'anomaly_score_v/SML_test').replace('.png', '.npy'), anomaly_score)
+            image_batch = image_batch.cuda()
 
-        anomaly_score = -(anomaly_score - anomaly_score.min()) / (anomaly_score.max() - anomaly_score.min()) * 255
-        Image.fromarray(anomaly_score.astype(np.uint8), mode='L').save(image_path.replace('rgb_v', 'anomaly_vis_v/SML'))
+            main_out, anomaly_scores = net(image_batch)
+            anomaly_scores = anomaly_scores.cpu().numpy()
+            for idx, image_path in enumerate(tqdm(image_paths, position=1, leave=True)):
+                os.makedirs(os.path.dirname(image_path.replace('rgb_v', 'anomaly_score_v/SML')), exist_ok=True)
+                os.makedirs(os.path.dirname(image_path.replace('rgb_v', 'anomaly_vis_v/SML')), exist_ok=True)
+
+                anomaly_score = anomaly_scores[idx]
+                np.save(image_path.replace('rgb_v', 'anomaly_score_v/SML').replace('.png', '.npy'), anomaly_score)
+
+                anomaly_score = -(anomaly_score - anomaly_score.min() + 1e-6) / (anomaly_score.max() - anomaly_score.min() + 1e-6) * 255
+                Image.fromarray(anomaly_score.astype(np.uint8), mode='L').save(image_path.replace('rgb_v', 'anomaly_vis_v/SML'))
 

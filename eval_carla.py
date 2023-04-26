@@ -212,7 +212,7 @@ if __name__ == '__main__':
         for image_batch, ood_gts_batch in tqdm(dataloader):
             ood_gts_list.append(ood_gts_batch)
             image_batch = image_batch.cuda()
-            
+
             main_out, anomaly_score = net(image_batch)
             anomaly_score_list.append(anomaly_score.cpu().numpy())
 
